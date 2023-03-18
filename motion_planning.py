@@ -5,7 +5,10 @@ from enum import Enum, auto
 
 import numpy as np
 
-from planning_utils import a_star, heuristic, create_grid
+from grid_map import GridMap
+from medial_axis_map import MedicalAxisGridMap
+from reference_frame import global_to_local, local_to_global
+
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
@@ -21,6 +24,15 @@ class States(Enum):
     DISARMING = auto()
     PLANNING = auto()
 
+class PlanningModes(Enum):
+    GRID2D = 1
+    MEDAXIS = 2
+    POTFIELD = 3
+    VOXEL = 4
+    VORONOI = 5
+    PRM = 6
+    RRT = 7
+
 
 class MotionPlanning(Drone):
 
@@ -34,7 +46,11 @@ class MotionPlanning(Drone):
 
         # initial state
         self.flight_state = States.MANUAL
+        self.planning_mode = None
 
+        # destination sequence
+        self.destination_sequence = [[-122.396375, 37.793913, 10],
+                                     [-122.397168, 37.793840,  10]]
         # register all your callbacks here
         self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
         self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
