@@ -48,7 +48,7 @@ class MotionPlanning(Drone):
         # initial state
         self.flight_state = States.MANUAL
         self.planning_mode = None
-        self.flight_subinterval = 0
+        self.flight_subinterval = 1
 
         # destination sequence
         self.destination_sequence = [[-122.396375, 37.793913, 10],
@@ -67,11 +67,7 @@ class MotionPlanning(Drone):
                 self.waypoint_transition()
         elif self.flight_state == States.WAYPOINT:
             drone_speed = np.linalg.norm(self.local_velocity)
-            if self.planning_mode == PlanningModes.GRID2D:
-                if drone_speed < 1:
-                    deadband_radius = 0.25
-                else:
-                    deadband_radius = drone_speed
+            deadband_radius = 0.25 + drone_speed
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < deadband_radius:
                 if len(self.waypoints) > 0:
                     self.waypoint_transition()
@@ -82,6 +78,7 @@ class MotionPlanning(Drone):
 
     def planning_mode_transition(self):
         print("planning mode transition")
+        self.flight_subinterval += 1
         self.plan_path()
 
     def velocity_callback(self):
@@ -109,9 +106,13 @@ class MotionPlanning(Drone):
         self.take_control()
         self.arm()
         # establish global home
-        global_home = self.read_global_home('colliders.csv')
-        self.set_home_position(*global_home)
-        print(f"global home is being set to {global_home}")
+        try:
+            global_home = self.read_global_home('colliders.csv')
+            self.set_home_position(*global_home)
+            print(f"global home is being set to {global_home}")
+        except Exception as e:
+            print(f"Error during arming transition: {e}")
+            self.manual_transition
 
     def takeoff_transition(self):
         self.flight_state = States.TAKEOFF
@@ -150,25 +151,35 @@ class MotionPlanning(Drone):
 
     def plan_path(self): 
         self.flight_state = States.PLANNING
-        subgoal = self.destination_sequence.pop(0)
-        subgoal_local = global_to_local(subgoal, self.global_home)
-        self.target_position[2] = subgoal_local[2]
-        SAFETY_DISTANCE = 5.0
+
+        # Get the current position and subgoal
         current_global_position = [self._longitude, self._latitude, self._altitude]
+        subgoal_global_position = self.destination_sequence.pop(0)
+        subgoal_local_position = global_to_local(subgoal_global_position, self.global_home)
         current_local_position = global_to_local(current_global_position, self.global_home)
-        self.flight_subinterval += 1
+
+        SAFETY_DISTANCE = 5.0
+        self.target_position[2] = subgoal_local_position[2] #Not sure if I need this.
+        
+        # Select the planning mode based on the flight_subinterval
+        planning_modes = {
+            PlanningModes.GRID2D: lambda: GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, subgoal_local_position).search_grid(),
+            PlanningModes.MEDAXIS: lambda: MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, subgoal_local_position).search_grid()
+        }
         self.planning_mode = PlanningModes(self.flight_subinterval)
+        if self.planning_mode not in planning_modes:
+            raise ValueError(f"Invalid planning mode: {self.planning_mode}")
+        plan_fn = planning_modes[self.planning_mode]
+
         print("planning flight path...")
         print(f"Current global position: {current_global_position}")
-        print(f"Commanded destination: {subgoal}")
+        print(f"Commanded destination: {subgoal_global_position}")
         print(f"Planning algorithm: {self.planning_mode}")
         print("computing flight path...")
-        if self.planning_mode == PlanningModes.GRID2D:
-            grid_2d = GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, subgoal_local)
-            self.waypoints = grid_2d.search_grid()
-        elif self.planning_mode == PlanningModes.MEDAXIS:
-            medaxis_grid = MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, subgoal_local)
-            self.waypoints = medaxis_grid.search_grid()
+
+        # Compute the waypoints using the selected planning mode
+        self.waypoints = plan_fn()
+
         print("path determined... the waypoint sequence is this:")
         print(self.waypoints)
 
@@ -177,7 +188,8 @@ class MotionPlanning(Drone):
 
 
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
-        #self.send_waypoints()
+        # This line of code seems to be causing problems, so I'm going to comment it out.
+        # self.send_waypoints()
     
     def read_global_home(self, filename: str):
         """
