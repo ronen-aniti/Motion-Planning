@@ -24,7 +24,7 @@ def global_to_local(global_position, global_home):
     (easting, northing, zone_number, zone_letter) = utm.from_latlon(lat, lon)
     
     # After that, create a local_position numpy array from its NED coordinates
-    local_position = np.array([northing - northing_h, easting - easting_h, -(alt - alth)])
+    local_position = np.array([northing - northing_h, easting - easting_h, (alt - alth)])
     
     # Finally, return them.
     return local_position

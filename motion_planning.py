@@ -1,18 +1,19 @@
+import pdb
 import argparse
 import time
 import msgpack
 from enum import Enum, auto
 
 import numpy as np
+import csv
 
 from grid_map import GridMap
-from medial_axis_map import MedicalAxisGridMap
+from medial_axis_map import MedialAxisGridMap
 from reference_frame import global_to_local, local_to_global
 
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
-from udacidrone.frame_utils import global_to_local
 
 
 class States(Enum):
@@ -47,10 +48,14 @@ class MotionPlanning(Drone):
         # initial state
         self.flight_state = States.MANUAL
         self.planning_mode = None
+        self.flight_subinterval = 0
 
         # destination sequence
         self.destination_sequence = [[-122.396375, 37.793913, 10],
                                      [-122.397168, 37.793840,  10]]
+
+        
+
         # register all your callbacks here
         self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
         self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
@@ -61,12 +66,23 @@ class MotionPlanning(Drone):
             if -1.0 * self.local_position[2] > 0.95 * self.target_position[2]:
                 self.waypoint_transition()
         elif self.flight_state == States.WAYPOINT:
-            if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < 1.0:
+            drone_speed = np.linalg.norm(self.local_velocity)
+            if self.planning_mode == PlanningModes.GRID2D:
+                if drone_speed < 1:
+                    deadband_radius = 0.25
+                else:
+                    deadband_radius = drone_speed
+            if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < deadband_radius:
                 if len(self.waypoints) > 0:
                     self.waypoint_transition()
                 else:
                     if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
-                        self.landing_transition()
+                        #self.landing_transition()
+                        self.planning_mode_transition()
+
+    def planning_mode_transition(self):
+        print("planning mode transition")
+        self.plan_path()
 
     def velocity_callback(self):
         if self.flight_state == States.LANDING:
@@ -90,13 +106,18 @@ class MotionPlanning(Drone):
     def arming_transition(self):
         self.flight_state = States.ARMING
         print("arming transition")
-        self.arm()
         self.take_control()
+        self.arm()
+        # establish global home
+        global_home = self.read_global_home('colliders.csv')
+        self.set_home_position(*global_home)
+        print(f"global home is being set to {global_home}")
 
     def takeoff_transition(self):
         self.flight_state = States.TAKEOFF
         print("takeoff transition")
         self.takeoff(self.target_position[2])
+        print(f"taking off to {self.target_position[2]} m. altitude")
 
     def waypoint_transition(self):
         self.flight_state = States.WAYPOINT
@@ -127,74 +148,58 @@ class MotionPlanning(Drone):
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
-    def plan_path(self):
+    def plan_path(self): 
         self.flight_state = States.PLANNING
-        print("Searching for a path ...")
-        TARGET_ALTITUDE = 5
-        SAFETY_DISTANCE = 5
+        subgoal = self.destination_sequence.pop(0)
+        subgoal_local = global_to_local(subgoal, self.global_home)
+        self.target_position[2] = subgoal_local[2]
+        SAFETY_DISTANCE = 5.0
+        current_global_position = [self._longitude, self._latitude, self._altitude]
+        current_local_position = global_to_local(current_global_position, self.global_home)
+        self.flight_subinterval += 1
+        self.planning_mode = PlanningModes(self.flight_subinterval)
+        print("planning flight path...")
+        print(f"Current global position: {current_global_position}")
+        print(f"Commanded destination: {subgoal}")
+        print(f"Planning algorithm: {self.planning_mode}")
+        print("computing flight path...")
+        if self.planning_mode == PlanningModes.GRID2D:
+            grid_2d = GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, subgoal_local)
+            self.waypoints = grid_2d.search_grid()
+        elif self.planning_mode == PlanningModes.MEDAXIS:
+            medaxis_grid = MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local_position, subgoal_local)
+            self.waypoints = medaxis_grid.search_grid()
+        print("path determined... the waypoint sequence is this:")
+        print(self.waypoints)
 
-        self.target_position[2] = TARGET_ALTITUDE
 
-        # TODO: read lat0, lon0 from colliders into floating point values
-        
-        # TODO: set home position to (lon0, lat0, 0)
 
-        # TODO: retrieve current global position
- 
-        # TODO: convert to current local position using global_to_local()
-        
-        print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
-                                                                         self.local_position))
-        # Read in obstacle map
-        data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
-        
-        # Define a grid for a particular altitude and safety margin around obstacles
-        grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
-        print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
-        # Define starting point on the grid (this is just grid center)
-        grid_start = (-north_offset, -east_offset)
-        # TODO: convert start position to current position rather than map center
-        
-        # Set goal as some arbitrary position on the grid
-        grid_goal = (-north_offset + 10, -east_offset + 10)
-        # TODO: adapt to set goal as latitude / longitude position and convert
 
-        # Run A* to find a path from start to goal
-        # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
-        # or move to a different search space such as a graph (not done here)
-        print('Local Start and Goal: ', grid_start, grid_goal)
-        path, _ = a_star(grid, heuristic, grid_start, grid_goal)
-        # TODO: prune path to minimize number of waypoints
-        # TODO (if you're feeling ambitious): Try a different approach altogether!
 
-        # Convert path to waypoints
-        waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
-        # Set self.waypoints
-        self.waypoints = waypoints
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
-        self.send_waypoints()
+        #self.send_waypoints()
+    
+    def read_global_home(self, filename: str):
+        """
+        Read in global home from CSV 2.5d map
+        """
+        with open(filename) as f:
+            reader = csv.reader(f)
+            line_1 = next(reader)
+        lat0 = float(line_1[0].split('lat0 ')[1])
+        lon0 = float(line_1[1].split(' lon0 ')[1])
+
+        return (lon0, lat0, 0.0)
 
     def start(self):
         self.start_log("Logs", "NavLog.txt")
-
         print("starting connection")
-        self.connection.start()
-
-        # Only required if they do threaded
-        # while self.in_mission:
-        #    pass
-
+        super().start()
         self.stop_log()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--port', type=int, default=5760, help='Port number')
-    parser.add_argument('--host', type=str, default='127.0.0.1', help="host address, i.e. '127.0.0.1'")
-    args = parser.parse_args()
-
-    conn = MavlinkConnection('tcp:{0}:{1}'.format(args.host, args.port), timeout=60)
+    conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
     drone = MotionPlanning(conn)
-    time.sleep(1)
-
+    time.sleep(2)
     drone.start()
