@@ -117,22 +117,19 @@ class MedialAxisGridMap(Map):
         """
         Removes collinear gridcells
         """
-        i = 0 
-        while i+2 < len(grid_sequence):
-            x1 = grid_sequence[i][0]
-            y1 = grid_sequence[i][1]
-            x2 = grid_sequence[i+1][0]
-            y2 = grid_sequence[i+1][1]
-            x3 = grid_sequence[i+2][0]
-            y3 = grid_sequence[i+2][1]
+        culled_grid_sequence = [grid_sequence[0], grid_sequence[1]]
+        for i in range(1, len(grid_sequence) - 1):
+            x1, y1 = grid_sequence[i - 1]
+            x2, y2 = grid_sequence[i]
+            x3, y3 = grid_sequence[i + 1]
 
             collinear = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0
 
-            if collinear:
-                del(grid_sequence[i+1])
-            else:
-                i += 1
-        return grid_sequence
+            if not collinear:
+                waypoint_pair.append(grid_sequence[i + 1])
+
+
+        return culled_grid_sequence
 
     def find_closest(self, gridcell):
         """
@@ -155,23 +152,13 @@ class MedialAxisGridMap(Map):
                     queue.append((nx, ny, distance + 1))
 
 
-
-
-
-
-
     def grid_to_waypoint(self, gridcell):
         """
         Converts a grid cell into a waypoint command
         """
-        waypoint = np.array([])
-        waypoint = np.append(waypoint, gridcell[0] + self.ned_boundaries[0])
-        waypoint = np.append(waypoint, gridcell[1] + self.ned_boundaries[2])
-        waypoint = np.append(waypoint, self.goal_altitude)
-        waypoint = np.append(waypoint, 0)
+        waypoint = [[gridcell[0] + self.ned_boundaries[0], gridcell[1] + self.ned_boundaries[2], self.goal_altitude, 0]]
 
-        return list(waypoint)
-
+        return waypoint
 
 
 
@@ -181,27 +168,26 @@ class MedialAxisGridMap(Map):
         """
         
         # First, define the action set
-        actions = {}
-        actions['LEFT'] = (0, -1, 1)
-        actions['RIGHT'] = (0, 1, 1)
-        actions['UP'] = (-1, 0, 1)
-        actions['DOWN'] = (1, 0, 1)
-        actions['NORTHEAST'] = (-1, 1, np.sqrt(2))
-        actions['NORTHWEST'] = (1, 1, np.sqrt(2))
-        actions['SOUTHEAST'] = (1, 1, np.sqrt(2))
-        actions['SOUTHWEST'] = (1, -1, np.sqrt(2))
+        actions = {
+            'LEFT': (0, -1, 1),
+            'RIGHT': (0, 1, 1),
+            'UP': (-1, 0, 1),
+            'DOWN': (1, 0, 1),
+            'NORTHEAST': (-1, 1, np.sqrt(2)),
+            'NORTHWEST': (1, 1, np.sqrt(2)),
+            'SOUTHEAST': (1, 1, np.sqrt(2)),
+            'SOUTHWEST': (1, -1, np.sqrt(2))
+        }
         
         grid_north, grid_east = gridcell
 
-        free_neighbors = []
-        for value in actions.values():
-            north_delta, east_delta, action_cost = value
-            candidate_cell_north = grid_north + north_delta
-            candidate_cell_east = grid_east + east_delta
-            candidate_cell = (candidate_cell_north, candidate_cell_east)
-            if candidate_cell_north >= 0 and candidate_cell_north < self.map_size[0] and candidate_cell_east >= 0 and candidate_cell_east < self.map_size[1]:
-                if self.grid[candidate_cell_north, candidate_cell_east] == True:
-                    free_neighbors.append((candidate_cell, action_cost))
+        rows, cols = self.grid.shape
+
+        free_neighbors = [
+            ((grid_north + north_delta, grid_east + east_delta), action_cost)
+            for north_delta, east_delta, action_cost in actions.values()
+            if 0 <= grid_north + north_delta < rows and 0 <= grid_east + east_delta < cols and self.grid[grid_north + north_delta, grid_east + east_delta] == True
+        ]
 
         return free_neighbors
 
@@ -216,12 +202,8 @@ class MedialAxisGridMap(Map):
         """
         Plots the path from start to goal
         """
-
-        grid_sequence_north = []
-        grid_sequence_east = []
-        for grid_cell in grid_sequence:
-            grid_sequence_north.append(grid_cell[0])
-            grid_sequence_east.append(grid_cell[1])
+        grid_sequence_north = [grid_cell[0] for grid_cell in grid_sequence]
+        grid_sequence_east = [grid_cell[1] for grid_cell in grid_sequence]
         
         plt.imshow(self.grid, origin='lower', cmap='Greys')
         plt.plot(grid_sequence_east, grid_sequence_north, color='blue', linestyle='-', marker='o')
@@ -229,5 +211,3 @@ class MedialAxisGridMap(Map):
         plt.xlabel('Eastings (m)')
         plt.ylabel('Northings (m)')
         plt.show()
-
-        
