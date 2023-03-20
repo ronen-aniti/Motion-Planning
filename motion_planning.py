@@ -82,7 +82,10 @@ class MotionPlanning(Drone):
                 self.waypoint_transition()
         elif self.flight_state == States.WAYPOINT:
             drone_speed = np.linalg.norm(self.local_velocity)
-            deadband_radius = 0.25 + drone_speed
+            if self.planning_mode == PlanningModes.GRID2D:
+                deadband_radius = 0.25 + drone_speed
+            elif self.planning_mode == PlanningModes.MEDAXIS:
+                deadband_radius = 1 + 2 * drone_speed
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < deadband_radius:
                 if len(self.waypoints) > 0:
                     self.waypoint_transition()
