@@ -70,6 +70,7 @@ class MedialAxisGridMap(Map):
                 break
 
             free_neighbors = self.explore_free_neighbors(gridcell)
+            print(free_neighbors)
         
             for free_neighbor in free_neighbors:
                 candidate_cell = free_neighbor[0]
@@ -101,7 +102,7 @@ class MedialAxisGridMap(Map):
             grid_sequence = self.remove_collinear(grid_sequence)
 
             ## Plot the updated grid sequence
-            #self.plot_path(grid_sequence)
+            self.plot_path(grid_sequence)
 
             ## Covert the grid sequence into a waypoint sequence
             waypoint_commands = [self.grid_to_waypoint(gridcell) for gridcell in grid_sequence]
@@ -146,6 +147,7 @@ class MedialAxisGridMap(Map):
         while queue:
             x, y, distance = queue.popleft()
             if self.grid[x][y] == 1.0:
+                print(f"Closest gridcell: {(x,y)}")
                 return (x, y)
 
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
