@@ -1,10 +1,11 @@
 import numpy as np
+from typing import List, Tuple
 
 class Map:
     """
     The general map class, from which specific map representations are derived
     """
-    def __init__(self, filename, title, safety, global_home, current_local_position, goal_local_position):
+    def __init__(self, filename: str, title: str, safety: int, global_home: Tuple[float, float, float], current_local_position: Tuple[float, float, float], goal_local_position: Tuple[float, float, float]):
         self.filename = filename
         self.title = title
         self.safety = safety
@@ -19,7 +20,7 @@ class Map:
         self.current_grid_location = self.determine_grid_location(self.current_local_position)
         self.goal_grid_location = self.determine_grid_location(self.goal_local_position)
 
-    def determine_grid_location(self, local_position):
+    def determine_grid_location(self, local_position: Tuple[float, float, float]) -> Tuple[int, int]:
         """
         Determine current grid location given a local position
         """
@@ -37,30 +38,32 @@ class Map:
 
 
 
-    def take_measurements(self):
+    def take_measurements(self) -> Tuple[List[int], List[int]]:
         """
         Scans the csv map file and returns the NED boundaries relative to global home
         """
         
-        # First, calculate NED boundaries
-        ned_boundaries = [0, 0, 0, 0, 0, 0]
-        ned_boundaries[0] = int(np.floor(np.amin(self.data[:,0] - self.data[:,3])) - self.safety) # North min
-        ned_boundaries[1] = int(np.ceil(np.amax(self.data[:,0] + self.data[:,3])) + self.safety) # North max
-        ned_boundaries[2] = int(np.floor(np.amin(self.data[:,1] - self.data[:,4])) - self.safety) # East min
-        ned_boundaries[3] = int(np.ceil(np.amax(self.data[:,1] + self.data[:,4])) + self.safety) # East max
-        ned_boundaries[4] = 0 # Alt min
-        ned_boundaries[5] = int(np.ceil(np.amax(self.data[:,2] + self.data[:,5])) + self.safety) # Alt max
+        # First, calculate NED boundaries: North min, North max, East min, East Max, Alt min, Alt max.
+        ned_boundaries = [
+            int(np.floor(np.amin(self.data[:,0] - self.data[:,3])) - self.safety), 
+            int(np.ceil(np.amax(self.data[:,0] + self.data[:,3])) + self.safety),
+            int(np.floor(np.amin(self.data[:,1] - self.data[:,4])) - self.safety), 
+            int(np.ceil(np.amax(self.data[:,1] + self.data[:,4])) + self.safety),
+            0, 
+            int(np.ceil(np.amax(self.data[:,2] + self.data[:,5])) + self.safety)
+            ]
 
         # Second, calculate the size of the map
-        map_size = [0, 0, 0]
-        map_size[0] = ned_boundaries[1] - ned_boundaries[0]
-        map_size[1] = ned_boundaries[3] - ned_boundaries[2]
-        map_size[2] = ned_boundaries[5] - ned_boundaries[4]
+        map_size = [
+            ned_boundaries[1] - ned_boundaries[0],
+            ned_boundaries[3] - ned_boundaries[2],
+            ned_boundaries[5] - ned_boundaries[4]
+        ]
 
         # Third, return the calculated quantities
         return ned_boundaries, map_size
 
-    def compute_elevation_map(self):
+    def compute_elevation_map(self) -> np.ndarray:
         """
         Compute a '2.5d' map of the drone's environment
         """
@@ -69,7 +72,6 @@ class Map:
         elevation_map = np.zeros((self.map_size[0], self.map_size[1]))
         
         # Second, build a 2.5d grid representation of the drone's environment
-        obstacle_boundaries = [0, 0, 0, 0]
         ## Iterate through the map data file to do this
         for i in range(self.data.shape[0]):
             north, east, down, d_north, d_east, d_down = self.data[i, :]

@@ -68,7 +68,7 @@ class MotionPlanning(Drone):
 
         
         # destination geodetic
-        self.destination_geodetic = goal_geodetic 
+        self.goal_geodetic = goal_geodetic 
 
         # register all your callbacks here
         self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
@@ -164,7 +164,7 @@ class MotionPlanning(Drone):
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
-        destination_local = global_to_local(self.destination_geodetic, self.global_home)
+        destination_local = global_to_local(self.goal_geodetic, self.global_home)
 
         SAFETY_DISTANCE = 5.0
 
@@ -180,7 +180,7 @@ class MotionPlanning(Drone):
         plan_fn = planning_modes[self.planning_mode]
         
         print(f"Current global position: {current_geodetic}")
-        print(f"Commanded destination: {self.destination_geodetic}")
+        print(f"Commanded destination: {self.goal_geodetic}")
         print(f"Path planning algorithm selected: {self.planning_mode}")
         print("Attempting to compute flight path...")
 
@@ -188,7 +188,7 @@ class MotionPlanning(Drone):
         self.waypoints = plan_fn()
 
         print("Path determined... The waypoint sequence is this:")
-        print(self.waypoints)
+        #print(self.waypoints)
 
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
         # This line of code seems to be causing problems, so I'm going to comment it out.
@@ -212,31 +212,34 @@ class MotionPlanning(Drone):
         super().start()
         self.stop_log()
 
-
-if __name__ == "__main__":
+def configure_flight_settings():
 
     # Present user with a welcome message.
     print("Welcome. Help the quadcopter plan it's path by responding to this simple sequence of path planning prompts.")
 
-    # Prompt user with a choice of whether or not to use default destination as target location
+    # Prompt user to select a destination.
     print("First, do you intend to have the quadcopter to fly to its default destination, Main St. and California St.?")
-    default = bool(int(input("(1 = YES, 0 = NO) ")))
-
-    # Enable user to select custom geodetic coordinates if default destination isn't selected
-    if not default:
-        print("Ok, set another destination.")
-        goal_lon = input("Input desired longitude ")
-        goal_lat = input("Input desired latitude ")
-        goal_alt = input("Input desired altitude ")
-        goal_geodetic = (float(goal_lon), float(goal_lat), float(goal_alt))
-    else: 
+    use_default_destination = bool(int(input("(1 = YES, 0 = NO) ")))
+    if use_default_destination:
         goal_geodetic = (-122.396375, 37.793913, 10) # California St. and Main St.
+    else: 
+        print("Ok, set another destination.")
+        goal_lon = float(input("Input desired longitude "))
+        goal_lat = float(input("Input desired latitude "))
+        goal_alt = float(input("Input desired altitude "))
+        goal_geodetic = (goal_lon, goal_lat, goal_alt)
 
     # Prompt user to select a path planning algorithm
     print("Now, choose a path planning algorithm from this list:")
     print(f"1= {PlanningModes.GRID2D}")
     print(f"2= {PlanningModes.MEDAXIS}")
     planning_mode = PlanningModes(int(input("")))
+
+    return goal_geodetic, planning_mode
+
+if __name__ == "__main__":
+
+    goal_geodetic, planning_mode = configure_flight_settings()
 
     # Establish a connection with the drone simulator
     conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
