@@ -53,23 +53,22 @@ class PlanningModes(Enum):
 
 class MotionPlanning(Drone):
 
-    def __init__(self, connection):
+    def __init__(self, connection, planning_mode, goal_geodetic):
         super().__init__(connection)
 
         self.target_position = np.array([0.0, 0.0, 0.0])
         self.waypoints = []
         self.in_mission = True
         self.check_state = {}
+        self.planning_mode = planning_mode
+
 
         # initial state
         self.flight_state = States.MANUAL
 
-        # planning mode
-        #self.planning_mode = PlanningModes.GRID2D
-        self.planning_mode = PlanningModes.MEDAXIS
-
+        
         # destination geodetic
-        self.destination_geodetic = (-122.396375, 37.793913, 10) # California St. and Main St.
+        self.destination_geodetic = goal_geodetic 
 
         # register all your callbacks here
         self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
@@ -215,7 +214,32 @@ class MotionPlanning(Drone):
 
 
 if __name__ == "__main__":
+
+    # Present user with a welcome message.
+    print("Welcome. Help the quadcopter plan it's path by responding to this simple sequence of path planning prompts.")
+
+    # Prompt user with a choice of whether or not to use default destination as target location
+    print("First, do you intend to have the quadcopter to fly to its default destination, Main St. and California St.?")
+    default = bool(int(input("(1 = YES, 0 = NO) ")))
+
+    # Enable user to select custom geodetic coordinates if default destination isn't selected
+    if not default:
+        print("Ok, set another destination.")
+        goal_lon = input("Input desired longitude ")
+        goal_lat = input("Input desired latitude ")
+        goal_alt = input("Input desired altitude ")
+        goal_geodetic = (float(goal_lon), float(goal_lat), float(goal_alt))
+    else: 
+        goal_geodetic = (-122.396375, 37.793913, 10) # California St. and Main St.
+
+    # Prompt user to select a path planning algorithm
+    print("Now, choose a path planning algorithm from this list:")
+    print(f"1= {PlanningModes.GRID2D}")
+    print(f"2= {PlanningModes.MEDAXIS}")
+    planning_mode = PlanningModes(int(input("")))
+
+    # Establish a connection with the drone simulator
     conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
-    drone = MotionPlanning(conn)
+    drone = MotionPlanning(conn, planning_mode, goal_geodetic)
     time.sleep(2)
     drone.start()
