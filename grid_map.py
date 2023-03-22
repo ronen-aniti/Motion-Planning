@@ -14,12 +14,12 @@ class GridMap(Map):
     """
     A 2d grid representation of the drone's environment
     """
-    def __init__(self, filename: str, title: str, safety: int, global_home: np.ndarray, current_local_position: np.ndarray, goal_local_position: np.ndarray):
+    def __init__(self, filename, title, safety, global_home, current_local_position, goal_local_position):
         super().__init__(filename, title, safety, global_home, current_local_position, goal_local_position)
         self.grid = self.compute_grid()
         
 
-    def compute_grid(self) -> np.ndarray:
+    def compute_grid(self):
         """
         Build a grid to represent the drone's environment
         """
@@ -28,6 +28,7 @@ class GridMap(Map):
         grid = np.zeros((self.map_size[0], self.map_size[1]), dtype='float64')
         
         # Second, build a grid representation of the drone's environment
+        obstacle_boundaries = [0, 0, 0, 0]
         ## Iterate through the map data file to do this
         for i in range(self.data.shape[0]):
             north, east, down, d_north, d_east, d_down = self.data[i, :]
@@ -43,7 +44,7 @@ class GridMap(Map):
         # Third, return the grid map
         return grid
     
-    def search_grid(self) -> Union[None, List[List[float]]]:
+    def search_grid(self):
         """
         Generates a position command sequence that will bring the drone from start to goal
         """
@@ -123,7 +124,7 @@ class GridMap(Map):
             raise Exception('Failed to find a path.')
 
     
-    def remove_collinear(self, grid_sequence: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    def remove_collinear(self, grid_sequence):
         """
         Removes collinear gridcells
         """
@@ -145,18 +146,22 @@ class GridMap(Map):
         return grid_sequence
 
 
-    def grid_to_waypoint(self, gridcell: Tuple[int, int]) -> List[float]:
+    def grid_to_waypoint(self, gridcell):
         """
         Converts a grid cell into a waypoint command
         """
-        waypoint = [[gridcell[0] + self.ned_boundaries[0], gridcell[1] + self.ned_boundaries[2], self.goal_altitude, 0]]
+        waypoint = np.array([])
+        waypoint = np.append(waypoint, gridcell[0] + self.ned_boundaries[0])
+        waypoint = np.append(waypoint, gridcell[1] + self.ned_boundaries[2])
+        waypoint = np.append(waypoint, self.goal_altitude)
+        waypoint = np.append(waypoint, 0)
 
-        return waypoint
+        return list(waypoint)
 
 
 
 
-    def explore_free_neighbors(self, gridcell: Tuple[int, int]) -> List[Tuple[Tuple[int, int], float]]:
+    def explore_free_neighbors(self, gridcell):
         """
         Returns a gridcell's free neighbors along with the cost of getting to each
         """
@@ -194,7 +199,7 @@ class GridMap(Map):
         plt.ylabel('Northings (m)')
         plt.show()
 
-    def plot_path(self, grid_sequence: List[Tuple[int, int]]):
+    def plot_path(self, grid_sequence):
         """
         Plots the path from start to goal
         """

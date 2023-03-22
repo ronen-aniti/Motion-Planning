@@ -15,6 +15,8 @@ from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 
+from typing import Tuple
+
 
 class States(Enum):
     MANUAL = auto()
@@ -50,32 +52,73 @@ class PlanningModes(Enum):
         elif self == PlanningModes.RRT:
             return "Rapidly-Exploring Random Tree (RRT)"
 
+class FlightSettings:
+    def __init__(self, goal_geodetic: Tuple[float, float, float], planning_mode: PlanningModes, 
+                 multiple_incidents: bool, battery_charge: float):
+        self.goal_geodetic = goal_geodetic
+        self.planning_mode = planning_mode
+        self.multiple_incidents = multiple_incidents
+        self.battery_charge = battery_charge
+
+    def __str__(self):
+        return "\nFlight settings\n" \
+               f"Goal geodetic: {self.goal_geodetic}\n" \
+               f"Planning mode: {self.planning_mode}\n" \
+               f"Respond to multiple incidents: {self.multiple_incidents}\n" \
+               f"Battery charge: {self.battery_charge}%\n"
 
 class MotionPlanning(Drone):
 
-    def __init__(self, connection, planning_mode, goal_geodetic):
+    def __init__(self, connection, flight_settings):
         super().__init__(connection)
 
         self.target_position = np.array([0.0, 0.0, 0.0])
         self.waypoints = []
         self.in_mission = True
         self.check_state = {}
-        self.planning_mode = planning_mode
+        
+        # flight settings
+        self.planning_mode = flight_settings.planning_mode
+        self.multiple_incidents = flight_settings.multiple_incidents
+        self.goal_geodetic = flight_settings.goal_geodetic
+        self.battery_charge = flight_settings.battery_charge
+
+        self.previous_position = None
+        self.meters_traveled = 0.0
+        self.arm_time = None
+
 
 
         # initial state
         self.flight_state = States.MANUAL
-
-        
-        # destination geodetic
-        self.goal_geodetic = goal_geodetic 
 
         # register all your callbacks here
         self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
         self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
         self.register_callback(MsgID.STATE, self.state_callback)
 
+
+    def battery_consumption_rate(self, velocity):
+        # The battery consumption rate is a linear function of velocity, % per km
+        base_rate = 1.0 
+        consumption_factor = 2.0 
+        rate = base_rate + consumption_factor * np.linalg.norm(velocity)
+        return rate 
+
     def local_position_callback(self):
+
+        # Keep track of total distance traveled (essentially the cost function of the flight)
+        if self.previous_position is not None:
+            delta_position = self.local_position - self.previous_position
+            delta_distance = np.linalg.norm(delta_position[:3])
+            consumption_rate = self.battery_consumption_rate(self.local_velocity)
+            self.meters_traveled += delta_distance
+            ## TODO: Update battery state of charge
+            self.battery_charge -= consumption_rate * delta_distance/1000
+            print(self.battery_charge)
+        self.previous_position = self.local_position.copy()
+
+        # Waypoint transition logic
         if self.flight_state == States.TAKEOFF:
             if -1.0 * self.local_position[2] > 0.95 * self.target_position[2]:
                 self.waypoint_transition()
@@ -116,14 +159,11 @@ class MotionPlanning(Drone):
         print("arming transition")
         self.take_control()
         self.arm()
+        self.arm_time = time.time()
         # establish global home
-        try:
-            global_home = self.read_global_home('colliders.csv')
-            self.set_home_position(*global_home)
-            print(f"Global home is being set to {global_home}")
-        except Exception as e:
-            print(f"Error during arming transition: {e}")
-            self.manual_transition
+        global_home = self.read_global_home('colliders.csv')
+        self.set_home_position(*global_home)
+        print(f"Global home is being set to {global_home}")
 
     def takeoff_transition(self):
         self.flight_state = States.TAKEOFF
@@ -148,6 +188,10 @@ class MotionPlanning(Drone):
         print("disarm transition")
         self.disarm()
         self.release_control()
+        elapsed_time = time.time() - self.arm_time
+        print(f"Time elapsed while armed: {elapsed_time:.2f} seconds")
+        print(f"Battery state of charge: {self.battery_charge:.2f}%")
+        print(f"Total distance traveled: {self.meters_traveled:.2f} meters")
 
     def manual_transition(self):
         self.flight_state = States.MANUAL
@@ -160,6 +204,12 @@ class MotionPlanning(Drone):
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
+    def battery_check(self):
+        if self.battery_charge <= 10:
+            print(f"Low battery warning: {self.battery_charge:.2f}% remaining")
+            # Implement return to home or emergency landing logic here.
+
+
     def plan_path(self): 
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
@@ -168,7 +218,8 @@ class MotionPlanning(Drone):
 
         SAFETY_DISTANCE = 5.0
 
-        self.target_position[2] = destination_local[2] #Not sure if I need this.
+        self.target_position[2] = destination_local[2] 
+
         
         # Select the planning mode based on the flight_subinterval
         planning_modes = {
@@ -187,7 +238,6 @@ class MotionPlanning(Drone):
         # Compute the waypoints using the selected planning mode
         self.waypoints = plan_fn()
 
-        print("Path determined... The waypoint sequence is this:")
         #print(self.waypoints)
 
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
@@ -212,13 +262,13 @@ class MotionPlanning(Drone):
         super().start()
         self.stop_log()
 
-def configure_flight_settings():
+def configure_flight_settings() -> FlightSettings:
 
     # Present user with a welcome message.
     print("Welcome. Help the quadcopter plan it's path by responding to this simple sequence of path planning prompts.")
 
     # Prompt user to select a destination.
-    print("First, do you intend to have the quadcopter to fly to its default destination, Main St. and California St.?")
+    print("Do you intend to have the quadcopter to fly to its default destination, Main St. and California St.?")
     use_default_destination = bool(int(input("(1 = YES, 0 = NO) ")))
     if use_default_destination:
         goal_geodetic = (-122.396375, 37.793913, 10) # California St. and Main St.
@@ -230,19 +280,34 @@ def configure_flight_settings():
         goal_geodetic = (goal_lon, goal_lat, goal_alt)
 
     # Prompt user to select a path planning algorithm
-    print("Now, choose a path planning algorithm from this list:")
+    print("Choose a path planning algorithm from this list:")
     print(f"1= {PlanningModes.GRID2D}")
     print(f"2= {PlanningModes.MEDAXIS}")
     planning_mode = PlanningModes(int(input("")))
 
-    return goal_geodetic, planning_mode
+    # Prompt user to select whether or not to respond to multiple incidents
+    print("Select whether or not to respond to multiple events")
+    multiple_incidents = bool(int(input("1 = YES, 0 = NO ")))
+    
+    # Prompt user to select the state of charge of the drone. Logic in code must decide whether to emergency land or to fly back to home base to charge, then complete mission.
+    print("Select the state of charge of the drone's battery (as a percentage)")
+    print("100 indicates full charge. Full charge is equivalent to 2,500 meter range")
+    print("0 indicates no charge")
+    battery_charge = float(input(""))
+
+    flight_settings = FlightSettings(goal_geodetic, planning_mode, multiple_incidents, battery_charge)
+    
+    return flight_settings
+
+
 
 if __name__ == "__main__":
 
-    goal_geodetic, planning_mode = configure_flight_settings()
+    flight_settings = configure_flight_settings()
+    print(flight_settings)
 
     # Establish a connection with the drone simulator
     conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
-    drone = MotionPlanning(conn, planning_mode, goal_geodetic)
+    drone = MotionPlanning(conn, flight_settings)
     time.sleep(2)
     drone.start()
