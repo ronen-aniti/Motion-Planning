@@ -10,6 +10,7 @@ import csv
 from grid_map import GridMap
 from medial_axis_map import MedialAxisGridMap
 from reference_frame import global_to_local, local_to_global
+import random 
 
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
@@ -26,6 +27,7 @@ class States(Enum):
     LANDING = auto()
     DISARMING = auto()
     PLANNING = auto()
+    REPLANNING = auto()
 
 class PlanningModes(Enum):
     GRID2D = 1
@@ -85,7 +87,8 @@ class MotionPlanning(Drone):
 
         self.previous_position = None
         self.meters_traveled = 0.0
-        self.arm_time = None
+        self.arm_timestamp = None
+        self.special_waypoint = None
 
 
 
@@ -97,7 +100,6 @@ class MotionPlanning(Drone):
         self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
         self.register_callback(MsgID.STATE, self.state_callback)
 
-
     def battery_consumption_rate(self, velocity):
         # The battery consumption rate is a linear function of velocity, % per km
         base_rate = 1.0 
@@ -105,19 +107,23 @@ class MotionPlanning(Drone):
         rate = base_rate + consumption_factor * np.linalg.norm(velocity)
         return rate 
 
-    def local_position_callback(self):
-
-        # Keep track of total distance traveled (essentially the cost function of the flight)
-        if self.previous_position is not None:
+    def update_battery_charge(self):
+        # Battery state of charge is a function of distance traveled and velocity
+        if self.previous_position is not None and self.arm_timestamp is not None:
+            flight_time = time.time() - self.arm_timestamp
             delta_position = self.local_position - self.previous_position
             delta_distance = np.linalg.norm(delta_position[:3])
             consumption_rate = self.battery_consumption_rate(self.local_velocity)
-            self.meters_traveled += delta_distance
-            ## TODO: Update battery state of charge
-            self.battery_charge -= consumption_rate * delta_distance/1000
-            print(self.battery_charge)
-        self.previous_position = self.local_position.copy()
+            time_factor = 100 * 0.025 / 1800
+            self.meters_traveled += delta_distance 
+            self.battery_charge -= consumption_rate * delta_distance/1000 + time_factor * flight_time
 
+        self.previous_position = self.local_position.copy() 
+
+    def local_position_callback(self):
+
+        self.update_battery_charge()
+        
         # Waypoint transition logic
         if self.flight_state == States.TAKEOFF:
             if -1.0 * self.local_position[2] > 0.95 * self.target_position[2]:
@@ -159,7 +165,7 @@ class MotionPlanning(Drone):
         print("arming transition")
         self.take_control()
         self.arm()
-        self.arm_time = time.time()
+        self.arm_timestamp = time.time()
         # establish global home
         global_home = self.read_global_home('colliders.csv')
         self.set_home_position(*global_home)
@@ -188,8 +194,8 @@ class MotionPlanning(Drone):
         print("disarm transition")
         self.disarm()
         self.release_control()
-        elapsed_time = time.time() - self.arm_time
-        print(f"Time elapsed while armed: {elapsed_time:.2f} seconds")
+        flight_time = time.time() - self.arm_timestamp
+        print(f"Time elapsed while armed: {flight_time:.2f} seconds")
         print(f"Battery state of charge: {self.battery_charge:.2f}%")
         print(f"Total distance traveled: {self.meters_traveled:.2f} meters")
 
@@ -211,6 +217,7 @@ class MotionPlanning(Drone):
 
 
     def plan_path(self): 
+
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
@@ -237,6 +244,9 @@ class MotionPlanning(Drone):
 
         # Compute the waypoints using the selected planning mode
         self.waypoints = plan_fn()
+        self.special_waypoint = random.randint(0, len(self.waypoints) - 1)
+        print(self.special_waypoint)
+        print(self.waypoints[self.special_waypoint])
 
         #print(self.waypoints)
 
