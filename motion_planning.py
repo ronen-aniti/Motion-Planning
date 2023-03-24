@@ -16,7 +16,7 @@ from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 
-from typing import Tuple
+from typing import Tuple, List
 
 
 class States(Enum):
@@ -71,7 +71,7 @@ class FlightSettings:
 
 class MotionPlanning(Drone):
 
-    def __init__(self, connection, flight_settings):
+    def __init__(self, connection: MavlinkConnection, flight_settings: FlightSettings):
         super().__init__(connection)
 
         self.target_position = np.array([0.0, 0.0, 0.0])
@@ -100,14 +100,14 @@ class MotionPlanning(Drone):
         self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
         self.register_callback(MsgID.STATE, self.state_callback)
 
-    def battery_consumption_rate(self, velocity):
+    def battery_consumption_rate(self, velocity: np.ndarray) -> float:
         # The battery consumption rate is a linear function of velocity, % per km
         base_rate = 1.0 
         consumption_factor = 2.0 
         rate = base_rate + consumption_factor * np.linalg.norm(velocity)
         return rate 
 
-    def update_battery_charge(self):
+    def update_battery_charge(self) -> None:
         # Battery state of charge is a function of distance traveled and velocity
         if self.previous_position is not None and self.arm_timestamp is not None:
             flight_time = time.time() - self.arm_timestamp
@@ -120,7 +120,7 @@ class MotionPlanning(Drone):
 
         self.previous_position = self.local_position.copy() 
 
-    def local_position_callback(self):
+    def local_position_callback(self) -> None:
 
         self.update_battery_charge()
         
@@ -141,13 +141,13 @@ class MotionPlanning(Drone):
                     if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
                         self.landing_transition()
                         
-    def velocity_callback(self):
+    def velocity_callback(self) -> None:
         if self.flight_state == States.LANDING:
             if self.global_position[2] - self.global_home[2] < 0.1:
                 if abs(self.local_position[2]) < 0.01:
                     self.disarming_transition()
 
-    def state_callback(self):
+    def state_callback(self) -> None:
         if self.in_mission:
             if self.flight_state == States.MANUAL:
                 self.arming_transition()
@@ -160,7 +160,7 @@ class MotionPlanning(Drone):
                 if ~self.armed & ~self.guided:
                     self.manual_transition()
 
-    def arming_transition(self):
+    def arming_transition(self) -> None:
         self.flight_state = States.ARMING
         print("arming transition")
         self.take_control()
@@ -171,25 +171,25 @@ class MotionPlanning(Drone):
         self.set_home_position(*global_home)
         print(f"Global home is being set to {global_home}")
 
-    def takeoff_transition(self):
+    def takeoff_transition(self) -> None:
         self.flight_state = States.TAKEOFF
         print("takeoff transition")
         self.takeoff(self.target_position[2])
         print(f"taking off to {self.target_position[2]} m. altitude")
 
-    def waypoint_transition(self):
+    def waypoint_transition(self) -> None:
         self.flight_state = States.WAYPOINT
         print("waypoint transition")
         self.target_position = self.waypoints.pop(0)
         print('target position', self.target_position)
         self.cmd_position(self.target_position[0], self.target_position[1], self.target_position[2], self.target_position[3])
 
-    def landing_transition(self):
+    def landing_transition(self) -> None:
         self.flight_state = States.LANDING
         print("landing transition")
         self.land()
 
-    def disarming_transition(self):
+    def disarming_transition(self) -> None:
         self.flight_state = States.DISARMING
         print("disarm transition")
         self.disarm()
@@ -199,24 +199,24 @@ class MotionPlanning(Drone):
         print(f"Battery state of charge: {self.battery_charge:.2f}%")
         print(f"Total distance traveled: {self.meters_traveled:.2f} meters")
 
-    def manual_transition(self):
+    def manual_transition(self) -> None:
         self.flight_state = States.MANUAL
         print("manual transition")
         self.stop()
         self.in_mission = False
 
-    def send_waypoints(self):
+    def send_waypoints(self) -> None:
         print("Sending waypoints to simulator ...")
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
-    def battery_check(self):
+    def battery_check(self) -> None:
         if self.battery_charge <= 10:
             print(f"Low battery warning: {self.battery_charge:.2f}% remaining")
             # Implement return to home or emergency landing logic here.
 
 
-    def plan_path(self): 
+    def plan_path(self) -> None: 
 
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
@@ -254,7 +254,7 @@ class MotionPlanning(Drone):
         # This line of code seems to be causing problems, so I'm going to comment it out.
         # self.send_waypoints()
     
-    def read_global_home(self, filename: str):
+    def read_global_home(self, filename: str) -> Tuple[float, float, float]:
         """
         Read in global home from CSV 2.5d map
         """
@@ -266,7 +266,7 @@ class MotionPlanning(Drone):
 
         return (lon0, lat0, 0.0)
 
-    def start(self):
+    def start(self) -> None:
         self.start_log("Logs", "NavLog.txt")
         print("starting connection")
         super().start()
