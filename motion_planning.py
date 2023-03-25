@@ -17,9 +17,8 @@ from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 
 from typing import Tuple, List
-from flight_settings import FlightSettings
 from planning_modes import PlanningModes
-from flight_setup import configure_flight_settings
+from flight_setup import configure_flight_settings, FlightSettings
 from mapping_utils import read_global_home
 from battery_utils import battery_consumption_rate
 
