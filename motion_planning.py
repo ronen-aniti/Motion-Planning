@@ -50,8 +50,6 @@ class MotionPlanning(Drone):
         self.meters_traveled = 0.0
         self.arm_timestamp = None
         self.plan_home = False
-        self.emergency_landing = False
-
 
         # initial state
         self.flight_state = States.MANUAL
@@ -222,8 +220,7 @@ class MotionPlanning(Drone):
             print("low battery")
             self.plan_home = True
             self.plan_path()
-        elif self.battery_charge <= 5 and not self.emergency_landing:
-            self.emergency_landing = True
+        elif self.battery_charge <= 5:
             print("emergency landing")
             self.landing_transition()
 
