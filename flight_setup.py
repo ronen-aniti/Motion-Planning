@@ -39,6 +39,7 @@ def configure_flight_settings() -> FlightSettings:
 
     # Present user with a welcome message.
     print("Welcome.")
+    print("The drone's mission is to collect aerial photographs of multiple traffic incidents reported in downtown San Francisco.")
     run_default_scenario = bool(int(input("Select whether or not you'd like to run the default scenario.\n1 = YES, 0 = NO \n")))
     if run_default_scenario:
         incident_locations = [

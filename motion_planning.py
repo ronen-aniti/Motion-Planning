@@ -49,7 +49,8 @@ class MotionPlanning(Drone):
         self.previous_position = None
         self.meters_traveled = 0.0
         self.arm_timestamp = None
-
+        self.plan_home = False
+        self.emergency_landing = False
 
 
         # initial state
@@ -63,6 +64,7 @@ class MotionPlanning(Drone):
     def local_position_callback(self) -> None:
 
         self.update_battery_charge()
+        self.battery_check()
         
         # Waypoint transition logic
         if self.flight_state == States.TAKEOFF:
@@ -78,7 +80,7 @@ class MotionPlanning(Drone):
                 if len(self.waypoints) > 0:
                     self.waypoint_transition()
                 else:
-                    if len(self.incident_locations) > 0:
+                    if len(self.incident_locations) > 0 and not self.plan_home:
                         self.plan_path()
                     else:
                         if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
@@ -172,11 +174,16 @@ class MotionPlanning(Drone):
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
-        if len(self.incident_locations) > 0:
-            goal_geodetic = self.incident_locations.pop(0)
+        
+        if self.plan_home:
+            goal_geodetic = self.global_home.copy()
+            goal_geodetic[2] = self._altitude
         else:
-            print("There are no more incidents to track.")
-            return
+            if len(self.incident_locations) > 0:
+                goal_geodetic = self.incident_locations.pop(0)
+            else:
+                print("There are no more incidents to track.")
+                return
 
         goal_local = global_to_local(goal_geodetic, self.global_home)
 
@@ -209,12 +216,16 @@ class MotionPlanning(Drone):
         # This line of code seems to be causing problems, so I'm going to comment it out.
         # self.send_waypoints()
 
-
     def battery_check(self) -> None:
-        if self.battery_charge <= 10:
-            print(f"Low battery warning: {self.battery_charge:.2f}% remaining")
-            # Implement return to home or emergency landing logic here.
-
+        """Implement return to home logic if battery is below a certain threshold"""
+        if self.battery_charge <= 20 and not self.plan_home:
+            print("low battery")
+            self.plan_home = True
+            self.plan_path()
+        elif self.battery_charge <= 5 and not self.emergency_landing:
+            self.emergency_landing = True
+            print("emergency landing")
+            self.landing_transition()
 
     def start(self) -> None:
         self.start_log("Logs", "NavLog.txt")
