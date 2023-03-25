@@ -17,7 +17,11 @@ from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 
 from typing import Tuple, List
-
+from flight_settings import FlightSettings
+from planning_modes import PlanningModes
+from flight_setup import configure_flight_settings
+from mapping_utils import read_global_home
+from battery_utils import battery_consumption_rate
 
 class States(Enum):
     MANUAL = auto()
@@ -29,50 +33,11 @@ class States(Enum):
     PLANNING = auto()
     REPLANNING = auto()
 
-class PlanningModes(Enum):
-    GRID2D = 1
-    MEDAXIS = 2
-    POTFIELD = 3
-    VOXEL = 4
-    VORONOI = 5
-    PRM = 6
-    RRT = 7
-
-    def __str__(self):
-        if self == PlanningModes.GRID2D:
-            return "2D grid and A* search"
-        elif self == PlanningModes.MEDAXIS:
-            return "Medial Axis grid with A* search"
-        elif self == PlanningModes.POTFIELD:
-            return "Potential field"
-        elif self == PlanningModes.VOXEL:
-            return "Voxel map with A* search"
-        elif self == PlanningModes.VORONOI: 
-            return "Voronoi graph with A*"
-        elif self == PlanningModes.PRM:
-            return "Probabilistic Road Map (PRM)"
-        elif self == PlanningModes.RRT:
-            return "Rapidly-Exploring Random Tree (RRT)"
-
-class FlightSettings:
-    def __init__(self, goal_geodetic: Tuple[float, float, float], planning_mode: PlanningModes, 
-                 multiple_incidents: bool, battery_charge: float):
-        self.goal_geodetic = goal_geodetic
-        self.planning_mode = planning_mode
-        self.multiple_incidents = multiple_incidents
-        self.battery_charge = battery_charge
-
-    def __str__(self):
-        return "\nFlight settings\n" \
-               f"Goal geodetic: {self.goal_geodetic}\n" \
-               f"Planning mode: {self.planning_mode}\n" \
-               f"Respond to multiple incidents: {self.multiple_incidents}\n" \
-               f"Battery charge: {self.battery_charge}%\n"
-
 class MotionPlanning(Drone):
 
     def __init__(self, connection: MavlinkConnection, flight_settings: FlightSettings):
         super().__init__(connection)
+
 
         self.target_position = np.array([0.0, 0.0, 0.0])
         self.waypoints = []
@@ -88,7 +53,10 @@ class MotionPlanning(Drone):
         self.previous_position = None
         self.meters_traveled = 0.0
         self.arm_timestamp = None
-        self.special_waypoint = None
+        self.default_destinations = [
+            (-122.396375, 37.793913, 10),
+            (-122.397956, 37.794955, 8),
+        ]
 
 
 
@@ -99,26 +67,6 @@ class MotionPlanning(Drone):
         self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
         self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
         self.register_callback(MsgID.STATE, self.state_callback)
-
-    def battery_consumption_rate(self, velocity: np.ndarray) -> float:
-        # The battery consumption rate is a linear function of velocity, % per km
-        base_rate = 1.0 
-        consumption_factor = 2.0 
-        rate = base_rate + consumption_factor * np.linalg.norm(velocity)
-        return rate 
-
-    def update_battery_charge(self) -> None:
-        # Battery state of charge is a function of distance traveled and velocity
-        if self.previous_position is not None and self.arm_timestamp is not None:
-            flight_time = time.time() - self.arm_timestamp
-            delta_position = self.local_position - self.previous_position
-            delta_distance = np.linalg.norm(delta_position[:3])
-            consumption_rate = self.battery_consumption_rate(self.local_velocity)
-            time_factor = 100 * 0.025 / 1800
-            self.meters_traveled += delta_distance 
-            self.battery_charge -= consumption_rate * delta_distance/1000 + time_factor * flight_time
-
-        self.previous_position = self.local_position.copy() 
 
     def local_position_callback(self) -> None:
 
@@ -140,6 +88,7 @@ class MotionPlanning(Drone):
                 else:
                     if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
                         self.landing_transition()
+
                         
     def velocity_callback(self) -> None:
         if self.flight_state == States.LANDING:
@@ -156,9 +105,16 @@ class MotionPlanning(Drone):
                     self.plan_path()
             elif self.flight_state == States.PLANNING:
                 self.takeoff_transition()
+            elif self.flight_state == States.REPLANNING:
+                self.replanning_transition()
             elif self.flight_state == States.DISARMING:
                 if ~self.armed & ~self.guided:
                     self.manual_transition()
+
+    def replanning_transition(self) -> None:
+        self.flight_state = States.REPLANNING
+        print("replanning transition")
+        self.replan_path()
 
     def arming_transition(self) -> None:
         self.flight_state = States.ARMING
@@ -167,7 +123,7 @@ class MotionPlanning(Drone):
         self.arm()
         self.arm_timestamp = time.time()
         # establish global home
-        global_home = self.read_global_home('colliders.csv')
+        global_home = read_global_home('colliders.csv')
         self.set_home_position(*global_home)
         print(f"Global home is being set to {global_home}")
 
@@ -180,8 +136,8 @@ class MotionPlanning(Drone):
     def waypoint_transition(self) -> None:
         self.flight_state = States.WAYPOINT
         print("waypoint transition")
-        self.target_position = self.waypoints.pop(0)
-        print('target position', self.target_position)
+        self.target_position = self.waypoints.pop(0)    
+        print('target position', self.target_position) 
         self.cmd_position(self.target_position[0], self.target_position[1], self.target_position[2], self.target_position[3])
 
     def landing_transition(self) -> None:
@@ -210,11 +166,18 @@ class MotionPlanning(Drone):
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
-    def battery_check(self) -> None:
-        if self.battery_charge <= 10:
-            print(f"Low battery warning: {self.battery_charge:.2f}% remaining")
-            # Implement return to home or emergency landing logic here.
+    def update_battery_charge(self) -> None:
+        # Battery state of charge is a function of distance traveled, velocity, and time armed.
+        if self.previous_position is not None and self.arm_timestamp is not None:
+            flight_time = time.time() - self.arm_timestamp
+            delta_position = self.local_position - self.previous_position
+            delta_distance = np.linalg.norm(delta_position[:3])
+            consumption_rate = battery_consumption_rate(self.local_velocity)
+            time_factor = 100 * 0.025 / 1800
+            self.meters_traveled += delta_distance 
+            self.battery_charge -= consumption_rate * delta_distance/1000 + time_factor * flight_time
 
+        self.previous_position = self.local_position.copy()
 
     def plan_path(self) -> None: 
 
@@ -242,73 +205,37 @@ class MotionPlanning(Drone):
         print(f"Path planning algorithm selected: {self.planning_mode}")
         print("Attempting to compute flight path...")
 
-        # Compute the waypoints using the selected planning mode
+        
+
         self.waypoints = plan_fn()
-        self.special_waypoint = random.randint(0, len(self.waypoints) - 1)
-        print(self.special_waypoint)
-        print(self.waypoints[self.special_waypoint])
 
         #print(self.waypoints)
 
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
         # This line of code seems to be causing problems, so I'm going to comment it out.
         # self.send_waypoints()
-    
-    def read_global_home(self, filename: str) -> Tuple[float, float, float]:
-        """
-        Read in global home from CSV 2.5d map
-        """
-        with open(filename) as f:
-            reader = csv.reader(f)
-            line_1 = next(reader)
-        lat0 = float(line_1[0].split('lat0 ')[1])
-        lon0 = float(line_1[1].split(' lon0 ')[1])
 
-        return (lon0, lat0, 0.0)
+
+    def battery_check(self) -> None:
+        if self.battery_charge <= 10:
+            print(f"Low battery warning: {self.battery_charge:.2f}% remaining")
+            # Implement return to home or emergency landing logic here.
+
 
     def start(self) -> None:
         self.start_log("Logs", "NavLog.txt")
-        print("starting connection")
+        print("starting connection") 
         super().start()
         self.stop_log()
 
-def configure_flight_settings() -> FlightSettings:
 
-    # Present user with a welcome message.
-    print("Welcome. Help the quadcopter plan it's path by responding to this simple sequence of path planning prompts.")
+    def replan_path(self) -> None:
 
-    # Prompt user to select a destination.
-    print("Do you intend to have the quadcopter to fly to its default destination, Main St. and California St.?")
-    use_default_destination = bool(int(input("(1 = YES, 0 = NO) ")))
-    if use_default_destination:
-        goal_geodetic = (-122.396375, 37.793913, 10) # California St. and Main St.
-    else: 
-        print("Ok, set another destination.")
-        goal_lon = float(input("Input desired longitude "))
-        goal_lat = float(input("Input desired latitude "))
-        goal_alt = float(input("Input desired altitude "))
-        goal_geodetic = (goal_lon, goal_lat, goal_alt)
-
-    # Prompt user to select a path planning algorithm
-    print("Choose a path planning algorithm from this list:")
-    print(f"1= {PlanningModes.GRID2D}")
-    print(f"2= {PlanningModes.MEDAXIS}")
-    planning_mode = PlanningModes(int(input("")))
-
-    # Prompt user to select whether or not to respond to multiple incidents
-    print("Select whether or not to respond to multiple events")
-    multiple_incidents = bool(int(input("1 = YES, 0 = NO ")))
-    
-    # Prompt user to select the state of charge of the drone. Logic in code must decide whether to emergency land or to fly back to home base to charge, then complete mission.
-    print("Select the state of charge of the drone's battery (as a percentage)")
-    print("100 indicates full charge. Full charge is equivalent to 2,500 meter range")
-    print("0 indicates no charge")
-    battery_charge = float(input(""))
-
-    flight_settings = FlightSettings(goal_geodetic, planning_mode, multiple_incidents, battery_charge)
-    
-    return flight_settings
-
+        # Inform the user of the new destination
+        # Lon: -122.397956
+        # Lat: 37.794955
+        # Alt: 15 m
+        pass
 
 
 if __name__ == "__main__":
