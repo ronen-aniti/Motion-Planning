@@ -114,8 +114,8 @@ class GridMap(Map):
             ## Plot the updated grid sequence
             #self.plot_path(grid_sequence)
 
-            ## Covert the grid sequence into a waypoint sequence
-            waypoint_commands = [self.grid_to_waypoint(gridcell) for gridcell in grid_sequence]
+            ## Convert the grid sequence into a waypoint sequence
+            waypoint_commands = [self.grid_to_waypoint(grid_sequence[i], grid_sequence[i-1]) for i in range(1, len(grid_sequence))]
             
             ## Return the waypoint sequence
             return waypoint_commands
@@ -146,15 +146,20 @@ class GridMap(Map):
         return grid_sequence
 
 
-    def grid_to_waypoint(self, gridcell):
+    def grid_to_waypoint(self, gridcell, previous_gridcell=None):
         """
         Converts a grid cell into a waypoint command
         """
+        if previous_gridcell is not None:
+            heading = np.arctan2(gridcell[1] - previous_gridcell[1], gridcell[0] - previous_gridcell[0])
+        else:
+            heading = 0.0
+
         waypoint = np.array([])
         waypoint = np.append(waypoint, gridcell[0] + self.ned_boundaries[0])
         waypoint = np.append(waypoint, gridcell[1] + self.ned_boundaries[2])
         waypoint = np.append(waypoint, self.goal_altitude)
-        waypoint = np.append(waypoint, 0)
+        waypoint = np.append(waypoint, heading)
 
         return list(waypoint)
 

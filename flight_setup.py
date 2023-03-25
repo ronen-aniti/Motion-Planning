@@ -38,7 +38,7 @@ class FlightSettings:
 def configure_flight_settings() -> FlightSettings:
 
     # Present user with a welcome message.
-    print("Welcome.")
+    print("Welcome to 'Collision Cam'.")
     print("The drone's mission is to collect aerial photographs of multiple traffic incidents reported in downtown San Francisco.")
     run_default_scenario = bool(int(input("Select whether or not you'd like to run the default scenario.\n1 = YES, 0 = NO \n")))
     if run_default_scenario:
@@ -50,7 +50,7 @@ def configure_flight_settings() -> FlightSettings:
         incident_lon = float(input("Input desired longitude "))
         incident_lat = float(input("Input desired latitude "))
         incident_alt = float(input("Input desired altitude "))
-        incident_locations = [(goal_lon, goal_lat, goal_alt)]
+        incident_locations = [(incident_lon, incident_lat, incident_alt)]
 
     print("Select a path planning algorithm.")
     print(f"1= {PlanningAlgorithms.GRID2D}")
