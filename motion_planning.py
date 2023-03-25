@@ -70,16 +70,19 @@ class MotionPlanning(Drone):
                 self.waypoint_transition()
         elif self.flight_state == States.WAYPOINT:
             drone_speed = np.linalg.norm(self.local_velocity)
-            if self.planning_mode == PlanningAlgorithms.GRID2D:
+            if self.planning_algorithm == PlanningAlgorithms.GRID2D:
                 deadband_radius = 0.25 + drone_speed
-            elif self.planning_mode == PlanningAlgorithms.MEDAXIS:
+            elif self.planning_algorithm == PlanningAlgorithms.MEDAXIS:
                 deadband_radius = 4.0 + 4.0 * drone_speed
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < deadband_radius:
                 if len(self.waypoints) > 0:
                     self.waypoint_transition()
                 else:
-                    if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
-                        self.landing_transition()
+                    if len(self.incident_locations) > 0:
+                        self.plan_path()
+                    else:
+                        if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
+                            self.landing_transition()
 
                         
     def velocity_callback(self) -> None:
@@ -169,30 +172,30 @@ class MotionPlanning(Drone):
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
-        if len(incident_locations) > 0:
-            goal_geodetic = incident_locations.pop(0)
+        if len(self.incident_locations) > 0:
+            goal_geodetic = self.incident_locations.pop(0)
         else:
             print("There are no more incidents to track.")
             return
 
-        destination_local = global_to_local(goal_geodetic, self.global_home)
+        goal_local = global_to_local(goal_geodetic, self.global_home)
 
         SAFETY_DISTANCE = 5.0
 
-        self.target_position[2] = destination_local[2] 
+        self.target_position[2] = goal_local[2] 
 
         
         # Select the planning mode based on the flight_subinterval
         planning_algorithms = {
-            PlanningAlgorithms.GRID2D: lambda: GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, destination_local).search_grid(),
-            PlanningAlgorithms.MEDAXIS: lambda: MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, destination_local).search_grid()
+            PlanningAlgorithms.GRID2D: lambda: GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, goal_local).search_grid(),
+            PlanningAlgorithms.MEDAXIS: lambda: MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, goal_local).search_grid()
         }
         if self.planning_algorithm not in planning_algorithms:
             raise ValueError(f"Invalid planning mode: {self.planning_algorithm}")
         plan_fn = planning_algorithms[self.planning_algorithm]
         
         print(f"Current global position: {current_geodetic}")
-        print(f"Commanded destination: {self.goal_geodetic}")
+        print(f"Commanded destination: {goal_geodetic}")
         print(f"Path planning algorithm selected: {self.planning_algorithm}")
         print("Attempting to compute flight path...")
 
