@@ -1,56 +1,67 @@
-from planning_modes import PlanningModes
-
 from typing import Tuple, List
+from enum import Enum, auto
 
 class FlightSettings:
-    def __init__(self, goal_geodetic: Tuple[float, float, float], planning_mode: PlanningModes, 
+    def __init__(self, incident_locations: List[Tuple[float, float, float]], planning_algorithm: PlanningAlgorithms, 
                  multiple_incidents: bool, battery_charge: float):
-        self.goal_geodetic = goal_geodetic
-        self.planning_mode = planning_mode
-        self.multiple_incidents = multiple_incidents
+        self.incident_locations = incident_locations
+        self.planning_algorithm = planning_algorithm
         self.battery_charge = battery_charge
 
     def __str__(self):
-        return "\nFlight settings\n" \
-               f"Goal geodetic: {self.goal_geodetic}\n" \
-               f"Planning mode: {self.planning_mode}\n" \
-               f"Respond to multiple incidents: {self.multiple_incidents}\n" \
-               f"Battery charge: {self.battery_charge}%\n"
+        return f"Incident locations: {self.incident_locations};\nPlanning algorithm: {self.planning_algorithm};\n\
+                Battery charge: {self.battery_charge:.2f}%"
 
 def configure_flight_settings() -> FlightSettings:
 
     # Present user with a welcome message.
-    print("Welcome. Help the quadcopter plan it's path by responding to this simple sequence of path planning prompts.")
-
-    # Prompt user to select a destination.
-    print("Do you intend to have the quadcopter to fly to its default destination, Main St. and California St.?")
-    use_default_destination = bool(int(input("(1 = YES, 0 = NO) ")))
-    if use_default_destination:
-        goal_geodetic = (-122.396375, 37.793913, 10) # California St. and Main St.
-    else: 
+    print("Welcome.")
+    run_default_scenario = bool(int(input("Select whether or not you'd like to run the default scenario. \
+        1 = YES, 0 = NO \n")))
+    if run_default_scenario:
+        incident_locations = [
+            (-122.396375, 37.793913, 10),
+            (-122.397956, 37.794955, 8)]
+    else:
         print("Ok, set another destination.")
-        goal_lon = float(input("Input desired longitude "))
-        goal_lat = float(input("Input desired latitude "))
-        goal_alt = float(input("Input desired altitude "))
-        goal_geodetic = (goal_lon, goal_lat, goal_alt)
+        incident_lon = float(input("Input desired longitude "))
+        incident_lat = float(input("Input desired latitude "))
+        incident_alt = float(input("Input desired altitude "))
+        incident_locations = [(goal_lon, goal_lat, goal_alt)]
 
-    # Prompt user to select a path planning algorithm
-    print("Choose a path planning algorithm from this list:")
-    print(f"1= {PlanningModes.GRID2D}")
-    print(f"2= {PlanningModes.MEDAXIS}")
-    planning_mode = PlanningModes(int(input("")))
+    print("Select a path planning algorithm.")
+    print(f"1= {PlanningAlgorithms.GRID2D}")
+    print(f"2= {PlanningAlgorithms.MEDAXIS}")
+    planning_algorithm = PlanningAlgorithms(int(input("")))
 
-    # Prompt user to select whether or not to respond to multiple incidents
-    print("Select whether or not to respond to multiple events")
-    multiple_incidents = bool(int(input("1 = YES, 0 = NO ")))
-    
-    # Prompt user to select the state of charge of the drone. Logic in code must decide whether to emergency land or to fly back to home base to charge, then complete mission.
-    print("Select the state of charge of the drone's battery (as a percentage)")
-    print("100 indicates full charge. Full charge is equivalent to 2,500 meter range")
-    print("0 indicates no charge")
-    battery_charge = float(input(""))
+    battery_charge = 100 
 
-    flight_settings = FlightSettings(goal_geodetic, planning_mode, multiple_incidents, battery_charge)
+    flight_settings = FlightSettings(incident_locations, planning_algorithm, battery_charge)
     
     return flight_settings
-\
+
+
+class PlanningAlgorithms(Enum):
+    GRID2D = 1
+    MEDAXIS = 2
+    POTFIELD = 3
+    VOXEL = 4
+    VORONOI = 5
+    PRM = 6
+    RRT = 7
+
+    def __str__(self):
+        if self == PlanningAlgorithms.GRID2D:
+            return "2D grid and A* search"
+        elif self == PlanningAlgorithms.MEDAXIS:
+            return "Medial Axis grid with A* search"
+        elif self == PlanningAlgorithms.POTFIELD:
+            return "Potential field"
+        elif self == PlanningAlgorithms.VOXEL:
+            return "Voxel map with A* search"
+        elif self == PlanningAlgorithms.VORONOI: 
+            return "Voronoi graph with A*"
+        elif self == PlanningAlgorithms.PRM:
+            return "Probabilistic Road Map (PRM)"
+        elif self == PlanningAlgorithms.RRT:
+            return "Rapidly-Exploring Random Tree (RRT)"

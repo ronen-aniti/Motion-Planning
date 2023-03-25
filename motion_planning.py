@@ -17,8 +17,7 @@ from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 
 from typing import Tuple, List
-from planning_modes import PlanningModes
-from flight_setup import configure_flight_settings, FlightSettings
+from flight_setup import configure_flight_settings, FlightSettings, PlanningAlgorithms
 from mapping_utils import read_global_home
 from battery_utils import battery_consumption_rate
 
@@ -30,7 +29,6 @@ class States(Enum):
     LANDING = auto()
     DISARMING = auto()
     PLANNING = auto()
-    REPLANNING = auto()
 
 class MotionPlanning(Drone):
 
@@ -44,18 +42,13 @@ class MotionPlanning(Drone):
         self.check_state = {}
         
         # flight settings
-        self.planning_mode = flight_settings.planning_mode
-        self.multiple_incidents = flight_settings.multiple_incidents
-        self.goal_geodetic = flight_settings.goal_geodetic
+        self.planning_algorithm = flight_settings.planning_algorithm
+        self.incident_locations = flight_settings.incident_locations
         self.battery_charge = flight_settings.battery_charge
 
         self.previous_position = None
         self.meters_traveled = 0.0
         self.arm_timestamp = None
-        self.default_destinations = [
-            (-122.396375, 37.793913, 10),
-            (-122.397956, 37.794955, 8),
-        ]
 
 
 
@@ -77,9 +70,9 @@ class MotionPlanning(Drone):
                 self.waypoint_transition()
         elif self.flight_state == States.WAYPOINT:
             drone_speed = np.linalg.norm(self.local_velocity)
-            if self.planning_mode == PlanningModes.GRID2D:
+            if self.planning_mode == PlanningAlgorithms.GRID2D:
                 deadband_radius = 0.25 + drone_speed
-            elif self.planning_mode == PlanningModes.MEDAXIS:
+            elif self.planning_mode == PlanningAlgorithms.MEDAXIS:
                 deadband_radius = 4.0 + 4.0 * drone_speed
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < deadband_radius:
                 if len(self.waypoints) > 0:
@@ -104,16 +97,9 @@ class MotionPlanning(Drone):
                     self.plan_path()
             elif self.flight_state == States.PLANNING:
                 self.takeoff_transition()
-            elif self.flight_state == States.REPLANNING:
-                self.replanning_transition()
             elif self.flight_state == States.DISARMING:
                 if ~self.armed & ~self.guided:
                     self.manual_transition()
-
-    def replanning_transition(self) -> None:
-        self.flight_state = States.REPLANNING
-        print("replanning transition")
-        self.replan_path()
 
     def arming_transition(self) -> None:
         self.flight_state = States.ARMING
@@ -183,7 +169,13 @@ class MotionPlanning(Drone):
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
-        destination_local = global_to_local(self.goal_geodetic, self.global_home)
+        if len(incident_locations) > 0:
+            goal_geodetic = incident_locations.pop(0)
+        else:
+            print("There are no more incidents to track.")
+            return
+
+        destination_local = global_to_local(goal_geodetic, self.global_home)
 
         SAFETY_DISTANCE = 5.0
 
@@ -191,17 +183,17 @@ class MotionPlanning(Drone):
 
         
         # Select the planning mode based on the flight_subinterval
-        planning_modes = {
-            PlanningModes.GRID2D: lambda: GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, destination_local).search_grid(),
-            PlanningModes.MEDAXIS: lambda: MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, destination_local).search_grid()
+        planning_algorithms = {
+            PlanningAlgorithms.GRID2D: lambda: GridMap('colliders.csv', '2d Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, destination_local).search_grid(),
+            PlanningAlgorithms.MEDAXIS: lambda: MedialAxisGridMap('colliders.csv', '2d Medial Axis Grid at 10 m Altitude', SAFETY_DISTANCE, self.global_home, current_local, destination_local).search_grid()
         }
-        if self.planning_mode not in planning_modes:
-            raise ValueError(f"Invalid planning mode: {self.planning_mode}")
-        plan_fn = planning_modes[self.planning_mode]
+        if self.planning_algorithm not in planning_algorithms:
+            raise ValueError(f"Invalid planning mode: {self.planning_algorithm}")
+        plan_fn = planning_algorithms[self.planning_algorithm]
         
         print(f"Current global position: {current_geodetic}")
         print(f"Commanded destination: {self.goal_geodetic}")
-        print(f"Path planning algorithm selected: {self.planning_mode}")
+        print(f"Path planning algorithm selected: {self.planning_algorithm}")
         print("Attempting to compute flight path...")
 
         
@@ -226,15 +218,6 @@ class MotionPlanning(Drone):
         print("starting connection") 
         super().start()
         self.stop_log()
-
-
-    def replan_path(self) -> None:
-
-        # Inform the user of the new destination
-        # Lon: -122.397956
-        # Lat: 37.794955
-        # Alt: 15 m
-        pass
 
 
 if __name__ == "__main__":
