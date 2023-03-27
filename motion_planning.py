@@ -49,7 +49,6 @@ class MotionPlanning(Drone):
         self.previous_position = None
         self.meters_traveled = 0.0
         self.arm_timestamp = None
-        self.plan_home = False
 
         # initial state
         self.flight_state = States.MANUAL
@@ -78,7 +77,7 @@ class MotionPlanning(Drone):
                 if len(self.waypoints) > 0:
                     self.waypoint_transition()
                 else:
-                    if len(self.incident_locations) > 0 and not self.plan_home:
+                    if len(self.incident_locations) > 0 and self.battery_charge > 20:
                         self.plan_path()
                     else:
                         if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
@@ -167,13 +166,13 @@ class MotionPlanning(Drone):
 
         self.previous_position = self.local_position.copy()
 
-    def plan_path(self) -> None: 
+    def plan_path(self, low_battery=False) -> None: 
 
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
         
-        if self.plan_home:
+        if low_battery:
             goal_geodetic = self.global_home.copy()
             goal_geodetic[2] = self._altitude
         else:
@@ -213,13 +212,12 @@ class MotionPlanning(Drone):
         # TODO: send waypoints to sim (this is just for visualization of waypoints)
         # This line of code seems to be causing problems, so I'm going to comment it out.
         # self.send_waypoints()
-
+  
     def battery_check(self) -> None:
         """Implement return to home logic if battery is below a certain threshold"""
         if self.battery_charge <= 20 and not self.plan_home:
             print("low battery")
-            self.plan_home = True
-            self.plan_path()
+            self.plan_path(low_battery=True)
         elif self.battery_charge <= 5:
             print("emergency landing")
             self.landing_transition()
