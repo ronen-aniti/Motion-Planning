@@ -1,5 +1,6 @@
 from typing import Tuple, List
 from enum import Enum, auto
+import json
 
 class PlanningAlgorithms(Enum):
     GRID2D = 1
@@ -42,22 +43,30 @@ def configure_flight_settings() -> FlightSettings:
     print("The drone's mission is to collect aerial photographs of multiple traffic incidents reported in downtown San Francisco.")
     run_default_scenario = bool(int(input("Select whether or not you'd like to run the default scenario.\n1 = YES, 0 = NO \n")))
     if run_default_scenario:
-        incident_locations = [
-            (-122.396375, 37.793913, 10),
-            (-122.397956, 37.794955, 8)]
+        with open('drone_config.json') as f:
+            data = json.load(f)
+
+        incident_locations = []
+
+        for incident in data['incidents']:
+            lon = incident['longitude']
+            lat = incident['latitude']
+            alt = incident['altitude']
+            incident_locations.append([lon, lat, alt])
+        battery_charge = data['battery']['charge']
     else:
         print("Ok, set another destination.")
         incident_lon = float(input("Input desired longitude "))
         incident_lat = float(input("Input desired latitude "))
         incident_alt = float(input("Input desired altitude "))
         incident_locations = [(incident_lon, incident_lat, incident_alt)]
+        battery_charge = 100
 
     print("Select a path planning algorithm.")
     print(f"1= {PlanningAlgorithms.GRID2D}")
     print(f"2= {PlanningAlgorithms.MEDAXIS}")
     planning_algorithm = PlanningAlgorithms(int(input("")))
 
-    battery_charge = 100 
 
     flight_settings = FlightSettings(incident_locations, planning_algorithm, battery_charge)
     

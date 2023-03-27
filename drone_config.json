@@ -1,0 +1,19 @@
+{
+  "incidents": [
+    {
+      "latitude": 37.793913,
+      "longitude": -122.396375,
+      "altitude": 10
+    },
+    {
+      "latitude": 37.794955,
+      "longitude": -122.397956,
+      "altitude": 8
+    }
+  ],
+  "battery": {
+    "charge": 100
+  }
+}
+
+
