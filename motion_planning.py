@@ -209,7 +209,8 @@ class MotionPlanning(Drone):
             self.waypoints = plan_fn()
         except:
             print("Trying 2D grid search instead...")
-            self.waypoints = planning_algorithms[PlanningAlgorithms.GRID2D]
+            plan_fn = planning_algorithms[PlanningAlgorithms.GRID2D]
+            self.waypoints = plan_fn()
 
         #print(self.waypoints)
 
