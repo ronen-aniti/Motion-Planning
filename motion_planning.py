@@ -36,7 +36,7 @@ class MotionPlanning(Drone):
         super().__init__(connection)
 
 
-        self.target_position = np.array([0.0, 0.0, 0.0])
+        self.target_position = np.array([0.0, 0.0, 0.0, 0.0])
         self.waypoints = []
         self.in_mission = True
         self.check_state = {}
@@ -49,6 +49,7 @@ class MotionPlanning(Drone):
         self.previous_position = None
         self.meters_traveled = 0.0
         self.arm_timestamp = None
+        self.low_battery = False
 
         # initial state
         self.flight_state = States.MANUAL
@@ -166,13 +167,13 @@ class MotionPlanning(Drone):
 
         self.previous_position = self.local_position.copy()
 
-    def plan_path(self, low_battery=False) -> None: 
+    def plan_path(self) -> None: 
 
         self.flight_state = States.PLANNING
         current_geodetic = (self._longitude, self._latitude, self._altitude)
         current_local = global_to_local(current_geodetic, self.global_home)
         
-        if low_battery:
+        if self.low_battery:
             goal_geodetic = self.global_home.copy()
             goal_geodetic[2] = self._altitude
         else:
@@ -204,8 +205,11 @@ class MotionPlanning(Drone):
         print("Attempting to compute flight path...")
 
         
-
-        self.waypoints = plan_fn()
+        try:
+            self.waypoints = plan_fn()
+        except:
+            print("Trying 2D grid search instead...")
+            self.waypoints = planning_algorithms[PlanningAlgorithms.GRID2D]
 
         #print(self.waypoints)
 
@@ -215,7 +219,8 @@ class MotionPlanning(Drone):
   
     def battery_check(self) -> None:
         """Implement return to home logic if battery is below a certain threshold"""
-        if self.battery_charge <= 20 and not self.plan_home:
+        if self.battery_charge <= 20 and not self.low_battery:
+            self.low_battery = True
             print("low battery")
             self.plan_path(low_battery=True)
         elif self.battery_charge <= 5:

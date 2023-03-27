@@ -110,7 +110,7 @@ class MedialAxisGridMap(Map):
             return waypoint_commands
 
         else:
-            raise Exception('Failed to find a path.')
+            raise Exception('Failed to find a path using A* search on a medial axis grid of the environment.')
 
     
     def remove_collinear(self, grid_sequence):
@@ -160,7 +160,7 @@ class MedialAxisGridMap(Map):
         """
         Converts a grid cell into a waypoint command
         """
-        waypoint = [[gridcell[0] + self.ned_boundaries[0], gridcell[1] + self.ned_boundaries[2], self.goal_altitude, 0]]
+        waypoint = [gridcell[0] + self.ned_boundaries[0], gridcell[1] + self.ned_boundaries[2], self.goal_altitude, 0]
 
         return waypoint
 
