@@ -188,7 +188,7 @@ class MotionPlanning(Drone):
         SAFETY_DISTANCE = 5.0
 
         self.target_position[2] = goal_local[2] 
-
+ 
         
         # Select the planning mode based on the flight_subinterval
         planning_algorithms = {
