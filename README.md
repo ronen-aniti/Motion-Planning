@@ -1,7 +1,9 @@
 # The Drone That Flies Itself
 ### Part 1: Building the Motion Planner
 
-[[toc]]
+## Table of Contents
+-[Project Description](#project-description)
+	-[The Background](#the-background)
 
 ## Project Description
 ### The Background
@@ -20,3 +22,7 @@ Summarize the solution.
 ## Credits
 
 ## Contact Information
+
+## Current Status
+
+## Contributing
