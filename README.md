@@ -2,8 +2,16 @@
 ### Part 1: Building the Motion Planner
 
 ## Table of Contents
--[Project Description](#project-description)
-	-[The Background](#the-background)
+- [Project Description](#project-description)
+	- [The Background](#the-background)
+	- [The Problem](#the-problem)
+	- [The Solution](#the-solution)
+- [Installation Instructions](#installation-instructions)
+- [Usage Instructions](#usage-instructions)
+- [Credits](#credits)
+- [Current Status](#current-status)
+- [Contributing](#contributing)
+- [Contact Information](#contact-information)
 
 ## Project Description
 ### The Background
@@ -21,8 +29,8 @@ Summarize the solution.
 
 ## Credits
 
-## Contact Information
-
 ## Current Status
 
 ## Contributing
+
+## Contact Information
