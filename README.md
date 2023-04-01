@@ -2,35 +2,34 @@
 ### Part 1: Building the Motion Planner
 
 ## Table of Contents
-- [Project Description](#project-description)
+- [Project Summary](#project-summary)
 	- [The Background](#the-background)
 	- [The Problem](#the-problem)
 	- [The Solution](#the-solution)
-- [Installation Instructions](#installation-instructions)
-- [Usage Instructions](#usage-instructions)
-- [Credits](#credits)
-- [Current Status](#current-status)
+- [Project Details](#project-details)
+	- [Features](#features)
+	- [Installation Instructions](#installation-instructions)
+	- [Usage Instructions](#usage-instructions)
 - [Contributing](#contributing)
+- [License](#License)
+- [Credits](#credits)
 - [Contact Information](#contact-information)
 
-## Project Description
+## Project Overview
 ### The Background
-Describe the Udacity program. Describe this section of the Udacity program. 
-
+Describe the Udacity program. Describe this section of the Udacity program. Describe the intended audience.  
 ### The Problem
-Summarize the solution.
-
+Summarize the problem.
 ### The Solution
 Summarize the solution. 
 
-## Installation Instructions
-
-## Usage Instructions
-
-## Credits
-
-## Current Status
+## Project Details
+### Features
+### Installation Instructions
+### Usage Instructions
 
 ## Contributing
-
+## License
+## Credits
 ## Contact Information
+My email is ronen.aniti@outlook.com. My phone number is 202-725-7865.
