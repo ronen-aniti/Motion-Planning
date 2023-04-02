@@ -17,7 +17,7 @@
 
 ## Project Overview
 ### The Background
-Describe the Udacity program. Describe this section of the Udacity program. Describe the intended audience.  
+Describe the Udacity program. Describe this section of the Udacity program. Describe the intended audience. Describe the learning objectives. 
 ### The Problem
 Summarize the problem.
 ### The Solution
@@ -25,6 +25,8 @@ Summarize the solution.
 
 ## Project Details
 ### Features
+List the planners available.
+Detail the command line interface. 
 ### Installation Instructions
 ### Usage Instructions
 
