@@ -25,8 +25,12 @@ Summarize the solution.
 
 ## Project Details
 ### Features
-List the planners available.
-Detail the command line interface. 
+Detail the command line interface. List the planners available. 
+1. 2D grid
+2. Voronoi graph
+3. Probabilistic roadmap (PRM)
+4. Rapidly-exploring random tree (RRT)
+5. Potential field
 ### Installation Instructions
 ### Usage Instructions
 
