@@ -1,10 +1,12 @@
 from enum import Enum, auto
+import time
 import numpy as np
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
-from typing import Tuple
-from planning_utils import read_global_home, build_map, read_destinations
+from typing import Tuple, List, Dict
+from planning_utils import read_global_home, build_map_and_take_measurements, read_destinations, global_to_local, collides, calculate_nearest_free_cell_in_2d, euclidean_distance
+import pdb
 
 class States(Enum):
 	MANUAL = auto()
@@ -22,9 +24,9 @@ class MotionPlanning(Drone):
 		self.waypoints = []
 		self.in_mission = True
 		self.check_state = {}
-		self.global_home = read_global_home('colliders.csv')
-		self.elevation_map = build_elevation_map('colliders.csv')
+		self.elevation_map, self.ned_boundaries, self.map_size = build_map_and_take_measurements('colliders.csv')
 		self.destinations = read_destinations('destinations.json')
+		self.destination = {}
 
 		# initial state
 		self.flight_state = States.MANUAL
@@ -32,13 +34,13 @@ class MotionPlanning(Drone):
 		# register all callbacks here
 		self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
 		self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
-		self.register_callback(MsgID.State, self.state_callback)
+		self.register_callback(MsgID.STATE, self.state_callback)
 
 	def local_position_callback(self):
 		if self.flight_state == States.TAKEOFF:
-			if -1.0 * self.local_position[2] > 0.95 * self.target_position[2]:
+			if -1.0 * self.local_position[2] > 0.95 * self.destination['alt']:
 				self.waypoint_transition()
-			elif flight_state == States.WAYPOINT:
+			elif self.flight_state == States.WAYPOINT:
 				drone_speed = np.linalg.norm(self.local_velocity)
 				deadband_radius = 0.25 + drone_speed
 				if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) <= deadband_radius:
@@ -60,14 +62,14 @@ class MotionPlanning(Drone):
 				self.arming_transition()
 			elif self.flight_state == States.ARMING:
 				if self.armed:
-					self.set_home_position(self.global_home[0], self.global_home[1], self.global_home[2])
-					self.current_destination = self.destinations.pop(0)
-					self.plan_path(self.current_destination)
+					self.destination = self.destinations.pop(0)
+					self.takeoff_transition()
 			elif self.flight_state == States.PLANNING:
 				self.takeoff_transition()
 			elif self.flight_state == States.DISARMING:
 				if ~self.armed & ~self.guided:
 					self.manual_transition()
+
 
 	def manual_transition(self):
 		self.flight_state = States.MANUAL
@@ -77,6 +79,8 @@ class MotionPlanning(Drone):
 
 	def arming_transition(self):
 		self.flight_state = States.ARMING
+		global_home = read_global_home('colliders.csv')
+		self.set_home_position(*global_home)
 		print("Arming transition")
 		self.take_control()
 		self.arm()
@@ -84,7 +88,7 @@ class MotionPlanning(Drone):
 	def takeoff_transition(self):
 		self.flight_state = States.TAKEOFF
 		print("Takeoff transition")
-		self.takeoff(self.target_position[2])
+		self.takeoff(self.destination['alt'])
 
 	def waypoint_transition(self):
 		self.flight_state = States.WAYPOINT 
@@ -92,7 +96,7 @@ class MotionPlanning(Drone):
 		if len(self.waypoints) > 0:
 			self.target_position = self.waypoints.pop(0)
 		else:
-			self.plan_path(self.current_destination)
+			self.plan_path(self.destination)
 		print(f"Target position {self.target_position}")
 		self.cmd_position(self.target_position[0], self.target_position[1], self.target_position[2], self.target_position[3])
 
@@ -107,27 +111,39 @@ class MotionPlanning(Drone):
 		self.disarm()
 		self.release_control()
 
-	def plan_path(self, destination: Tuple[float, float, float]) -> None:
+	def plan_path(self, destination: Dict[str, float]) -> None:
 		self.flight_state = States.PLANNING
 		PREDICTION_HORIZON = 40
-
+		SAFETY_DISTANCE = 5 
+		
 		# Calculate current position in NED frame
-		current_geodetic = (self._longitude, self._latitude, self._altitude)
-		current_local = global_to_local(current_geodetic, self.global_home)
+		current_global_pos = (self._longitude, self._latitude, self._altitude)
+		current_local_pos = global_to_local(current_global_pos, self.global_home)
 
-		# Calculate the destination location in NED
-		goal_local = global_to_local(destination, self.global_home)
+		# Format the destination geodetic coordinates into a tuple, and calculate the goal location in NED.
+		goal_global_pos = (destination['lon'], destination['lat'], destination['alt'])
+		goal_local_pos = global_to_local(goal_global_pos, self.global_home)
 		
 		# Calculate an intermediate goal
-		direction = (goal_local - current_local) / np.linalg.norm(goal_local - current_local)
-		intermediate_goal = current_local + direction * PREDICTION_HORIZON
+		direction = (goal_local_pos - current_local_pos) / np.linalg.norm(goal_local_pos - current_local_pos)
+		intermediate_goal_local_pos = current_local_pos + direction * PREDICTION_HORIZON
 
 		# Check if intermediate goal is occupied, and if so, reset intermediate goal to be the closest free cell
+		northing_index = int(intermediate_goal_local_pos[0])
+		easting_index = int(intermediate_goal_local_pos[1])
+		intermediate_goal_altitude = -1.0 * intermediate_goal_local_pos[2]
 
-		# Run A* to find a path from start to intermediate goal
+		pdb.set_trace()
+
+		if collides(self.elevation_map, northing_index, easting_index, intermediate_goal_altitude):
+			northing_index, easting_index, intermediate_goal_altitude = calculate_nearest_free_cell_in_2d(self.elevation_map, northing_index, easting_index, intermediate_goal_altitude)
+			intermediate_goal_local_pos = (northing_index, easting_index, intermediate_goal_altitude)
+
+		# Run A* to find a path from current location to intermediate goal
+		path, _ = astar(self.elevation_map, start_northing, start_easting, goal_northing, goal_easting, euclidean_distance)
 
 		# Convert path to waypoints and set self.waypoints
-
+			
 
 
 	def send_waypoints(self):
