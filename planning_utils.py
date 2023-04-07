@@ -1,8 +1,10 @@
 import numpy as np
 import csv
 import utm
+from queue import PriorityQueue
 from typing import Tuple, List, Dict, Callable
 import json
+from enum import Enum
 import pdb
 
 def read_global_home(filename: str) -> Tuple[float, float, float]:
@@ -179,7 +181,7 @@ def global_to_local(global_position: np.ndarray, global_home: np.ndarray) -> np.
 
 def collides(elevation_map: np.ndarray, northing_index: int, easting_index: int, altitude: float) -> bool:
 	"""
-	Determines if given coordinate (norrthing, easting, down) is occupied.
+	Determines if given coordinate (northing, easting, down) is occupied.
 
 	Parameters
 	----------
@@ -203,19 +205,133 @@ def collides(elevation_map: np.ndarray, northing_index: int, easting_index: int,
 def calculate_nearest_free_cell_in_2d(elevation_map: np.ndarray, northing_index: int, easting_index: int, altitude: float) -> Tuple[int, int, float]:
 	free_cell_found = False
 	search_radius = 1
+	max_northing, max_easting = elevation_map.shape
 
 	while not free_cell_found:
 		for i in range(-search_radius, search_radius + 1):
 			for j in range(-search_radius, search_radius + 1):
-				if not collides(elevation_map, northing_index + i, easting_index + j, altitude):
-					return northing_index + i, easting_index + j, altitude
+				new_northing = northing_index + i 
+				new_easting = easting_index + j 
+				# Check if the new indices are within the bounds of the elevation_map
+				if 0 <= new_northing < max_northing and 0 <= new_easting < max_easting:
+					if not collides(elevation_map, northing_index + i, easting_index + j, altitude):
+						return new_northing, new_easting, altitude
 		search_radius += 1 
 
-def euclidean_distance(point: np.ndarray, goal: np.ndarray) -> float:
+class Actions(Enum):
+	NORTH = (1, 0, 1)
+	EAST = (0, 1, 1)
+	SOUTH = (-1, 0, 1)
+	WEST = (0, -1, 1)
+	NORTHEAST = (1, 1, np.sqrt(2))
+	NORTHWEST = (1, -1, np.sqrt(2))
+	SOUTHEAST = (-1, 1, np.sqrt(2))
+	SOUTHWEST = (-1, -1, np.sqrt(2))
+
+	@property 
+	def cost(self):
+		return self.value[2]
+
+	@property
+	def delta(self):
+		return self.value[:2]
+
+	@property
+	def delta_north(self):
+		return self.value[0]
+
+	@property
+	def delta_east(self):
+		return self.value[1]
+
+def path_to_waypoints(path: List[Tuple[int, int]], ned_boundaries: Tuple[float], goal_altitude: float) -> List[List[float]]:
+	return [[northing_index + ned_boundaries[0], easting_index + ned_boundaries[2], goal_altitude, 0] for northing_index, easting_index in path]
+
+def remove_collinear(path: List[Tuple[int, int]]):
+	"""Removes the collinear elements from path"""
+	i = 0
+	while len(path) > i + 2:
+		x1, y1 = path[i]
+		x2, y2 = path[i + 1]
+		x3, y3 = path[i + 2]
+		#array = np.array([[x1, y1, 1], [x2, y2, 1], [x3, y3, 1]])
+		tolerance = 0.1
+		#collinear = np.linalg.det(array) <= tolerance
+		collinear = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0
+		if collinear:
+			del path[i + 1]
+		else:
+			i += 1
+
+	return path
+
+def valid_actions(elevation_map: np.ndarray, gridcell: Tuple[int, int], altitude: float) -> List[Actions]:
+	"""Returns a list of Tuples containing a Tuple grid index and cost of traveling to a neighboring gridcell"""
+	grid_northing, grid_easting =  gridcell
+
+	actions = [Actions.NORTH, Actions.EAST, Actions.SOUTH, Actions.WEST, Actions.NORTHEAST, Actions.NORTHWEST, Actions.SOUTHEAST, Actions.SOUTHWEST]
+	
+	valid = []
+	for action in actions:
+		northing = grid_northing + action.delta_north
+		easting = grid_easting + action.delta_east
+		if 0 <= northing < elevation_map.shape[0] and 0 <= easting < elevation_map.shape[1]:
+			if altitude > elevation_map[northing][easting]: 
+				valid.append(action)
+
+	return valid
+
+def euclidean_distance(point: Tuple[int, int], goal: Tuple[int, int]) -> float:
+	point = np.array([point[0], point[1]])
+	goal = np.array([goal[0], goal[1]])
 	return np.linalg.norm(goal - point)
 
-def astar(elevation_map: np.ndarray, start_northing: int, start_easting: int, goal_northing: int, goal_easting: int, heuristic_function: Callable[[np.ndarray, np.ndarray], float]):
-	pass
+def a_star(elevation_map: np.ndarray, start: Tuple[int, int], goal: Tuple[int, int], goal_altitude: float, heuristic_function: Callable[[np.ndarray, np.ndarray], float]):
+	"""Returns a path from start to goal, along with the cost"""
+	
+	path = []
+	path_cost = 0.0
+	queue = PriorityQueue()
+	queue.put((0.0, start))
+	visited = set(start)
+	branch = {}
+	found = False
+
+	while not queue.empty():
+		
+		_, current_node = queue.get()
+
+		if current_node == start:
+			current_cost = 0.0
+		else:
+			current_cost = branch[current_node][0]
+
+		if current_node == goal:
+			print("Found a path.")
+			found = True
+			break
+		else:
+			for action in valid_actions(elevation_map, current_node, goal_altitude):
+				next_node = (current_node[0] + action.delta_north, current_node[1] + action.delta_east)
+				branch_cost = current_cost + action.cost
+				queue_cost = branch_cost + heuristic_function(next_node, goal)
+
+				if next_node not in visited:
+					visited.add(next_node)
+					branch[next_node] = (branch_cost, current_node, action)
+					queue.put((queue_cost, next_node))
+	if found:
+		n = goal 
+		path_cost = branch[n][0]
+		path.append(goal)
+		while branch[n][1] != start:
+			path.append(branch[n][1])
+			n = branch[n][1]
+		path.append(branch[n][1])
+	else:
+		print("Failed to find a path.")
+
+	return path[::-1], path_cost
 
 def astar_graph(graph, start, goal, h):
 	pass
@@ -231,3 +347,6 @@ def rrt(coordinate, r=40):
 	pass
 def potential_field(coordinate, r=40):
 	pass
+
+if __name__ == '__main__':
+	print(Actions.NORTH.delta)

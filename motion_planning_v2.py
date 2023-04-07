@@ -5,7 +5,10 @@ from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 from typing import Tuple, List, Dict
-from planning_utils import read_global_home, build_map_and_take_measurements, read_destinations, global_to_local, collides, calculate_nearest_free_cell_in_2d, euclidean_distance
+from planning_utils import (read_global_home, build_map_and_take_measurements, 
+							read_destinations, global_to_local, collides, 
+							calculate_nearest_free_cell_in_2d, euclidean_distance, 
+							a_star, remove_collinear, path_to_waypoints)
 import pdb
 
 class States(Enum):
@@ -113,12 +116,17 @@ class MotionPlanning(Drone):
 
 	def plan_path(self, destination: Dict[str, float]) -> None:
 		self.flight_state = States.PLANNING
-		PREDICTION_HORIZON = 40
-		SAFETY_DISTANCE = 5 
+		PREDICTION_HORIZON = 40 # meters
+		SAFETY_DISTANCE = 5 # meters 
 		
-		# Calculate current position in NED frame
+		# Calculate the drone's current position in the NED frame
 		current_global_pos = (self._longitude, self._latitude, self._altitude)
 		current_local_pos = global_to_local(current_global_pos, self.global_home)
+
+		# Calculate the drone's position in the grid frame
+		current_northing_index = int(current_local_pos[0] - self.ned_boundaries[0])
+		current_easting_index = int(current_local_pos[1] - self.ned_boundaries[2])
+		current_grid_index = (current_northing_index, current_easting_index)
 
 		# Format the destination geodetic coordinates into a tuple, and calculate the goal location in NED.
 		goal_global_pos = (destination['lon'], destination['lat'], destination['alt'])
@@ -129,21 +137,31 @@ class MotionPlanning(Drone):
 		intermediate_goal_local_pos = current_local_pos + direction * PREDICTION_HORIZON
 
 		# Check if intermediate goal is occupied, and if so, reset intermediate goal to be the closest free cell
-		northing_index = int(intermediate_goal_local_pos[0])
-		easting_index = int(intermediate_goal_local_pos[1])
+		intermediate_goal_northing_index = int(intermediate_goal_local_pos[0] - self.ned_boundaries[0])
+		intermediate_goal_easting_index = int(intermediate_goal_local_pos[1] - self.ned_boundaries[2])
+		intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index)
 		intermediate_goal_altitude = -1.0 * intermediate_goal_local_pos[2]
 
-		pdb.set_trace()
+		if collides(self.elevation_map, intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude):
+			intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude = calculate_nearest_free_cell_in_2d(self.elevation_map, northing_index, easting_index, intermediate_goal_altitude)
+			intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude)
 
-		if collides(self.elevation_map, northing_index, easting_index, intermediate_goal_altitude):
-			northing_index, easting_index, intermediate_goal_altitude = calculate_nearest_free_cell_in_2d(self.elevation_map, northing_index, easting_index, intermediate_goal_altitude)
-			intermediate_goal_local_pos = (northing_index, easting_index, intermediate_goal_altitude)
+		# Run A* to find a grid-frame path from current location to intermediate goal
+		path, cost = a_star(self.elevation_map, current_grid_index, intermediate_goal_grid_index, intermediate_goal_altitude, euclidean_distance)
+		print(path)
 
-		# Run A* to find a path from current location to intermediate goal
-		path, _ = astar(self.elevation_map, start_northing, start_easting, goal_northing, goal_easting, euclidean_distance)
+		# Remove the collinear elements from the grid-frame path
+		path = remove_collinear(path)
+		print(path)
+		# Convert the calculated path from grid-frame coordinates to NED waypoints with headings
+		waypoints = path_to_waypoints(path, self.ned_boundaries, intermediate_goal_altitude)
+		print(waypoints)
+		# Set self.waypoints
+		self.waypoints = waypoints 
 
-		# Convert path to waypoints and set self.waypoints
-			
+		# Send the waypoints to the simulator
+		# self.send_waypoints()
+
 
 
 	def send_waypoints(self):

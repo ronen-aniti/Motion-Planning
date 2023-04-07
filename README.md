@@ -11,7 +11,6 @@
 	- [Installation Instructions](#installation-instructions)
 	- [Usage Instructions](#usage-instructions)
 - [Contributing](#contributing)
-- [Testing](#testing)
 - [License](#License)
 - [Credits](#credits)
 - [Contact Information](#contact-information)
