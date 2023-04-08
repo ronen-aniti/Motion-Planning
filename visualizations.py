@@ -3,21 +3,19 @@ import matplotlib.pyplot as plt
 import pdb
 
 binary_occupancy_grid = np.load("binary_occupancy_grid.npy")
-grid_history = np.load("grid_history.npy")
+waypoints_log = np.load("waypoints_log.npy")
+goal_grid_index = np.load("goal_grid_index.npy")
 
 plt.imshow(binary_occupancy_grid, origin="lower", cmap="Greys")
 plt.title("Binary Occupancy Grid")
 plt.xlabel("Eastings")
 plt.ylabel("Northings")
 
+print(waypoints_log)
+grid_eastings = waypoints_log[:, 0]
+grid_northings = waypoints_log[:, 1]
 
-grid_eastings = grid_history[:, 1]
-grid_northings = grid_history[:, 0]
-timestamps = grid_history[:, 2]
-
-print(grid_eastings)
-print(grid_northings)
-print(grid_history)
-plt.scatter(grid_eastings, grid_northings, c=timestamps, cmap="viridis")
+plt.plot(grid_eastings, grid_northings)
+plt.scatter(goal_grid_index[0], goal_grid_index[1])
 
 plt.show()

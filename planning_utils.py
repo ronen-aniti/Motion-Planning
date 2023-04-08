@@ -186,30 +186,7 @@ def global_to_local(global_position: np.ndarray, global_home: np.ndarray) -> np.
 	
 	return local_position
 
-def collides(elevation_map: np.ndarray, northing_index: int, easting_index: int, altitude: float) -> bool:
-	"""
-	Determines if given coordinate (northing, easting, down) is occupied.
-
-	Parameters
-	----------
-	elevation_map : numpy.ndarray
-		A 2D numpy array containing the 2.5D map of the drone's environment
-	northing_index : int
-		The northing measurement (meters) of the goal location
-	easting_index : int
-		The easting measurement (meters) of the goal location
-	down : float
-		The down measurement (meters) of the goal location 
-
-	Returns
-	-------
-	bool
-		A bool indicating whether or not the given NED coordinate is occupied
-
-	"""
-	return altitude <= elevation_map[northing_index, easting_index]
-
-def calculate_nearest_free_cell_in_2d(elevation_map: np.ndarray, northing_index: int, easting_index: int, altitude: float) -> Tuple[int, int, float]:
+def calculate_nearest_free_cell_in_2d(elevation_map: np.ndarray, northing_index: int, easting_index: int, altitude: float) -> Tuple[int, int]:
 	free_cell_found = False
 	search_radius = 1
 	max_northing, max_easting = elevation_map.shape
@@ -221,8 +198,9 @@ def calculate_nearest_free_cell_in_2d(elevation_map: np.ndarray, northing_index:
 				new_easting = easting_index + j 
 				# Check if the new indices are within the bounds of the elevation_map
 				if 0 <= new_northing < max_northing and 0 <= new_easting < max_easting:
-					if not collides(elevation_map, northing_index + i, easting_index + j, altitude):
-						return new_northing, new_easting, altitude
+					if elevation_map[northing_index + i][easting_index + j] < altitude:
+						print(f"New northing {new_northing}, New easting {new_easting}")
+						return new_northing, new_easting
 		search_radius += 1 
 
 class Actions(Enum):

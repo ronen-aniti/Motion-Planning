@@ -9,7 +9,7 @@ from udacidrone.messaging import MsgID
 from typing import Tuple, List, Dict
 from scipy.spatial import distance
 from planning_utils import (read_global_home, build_map_and_take_measurements, 
-							read_destinations, global_to_local, collides, 
+							read_destinations, global_to_local,
 							calculate_nearest_free_cell_in_2d,  
 							a_star, remove_collinear, path_to_waypoints, generate_binary_occupancy_grid)
 import pdb
@@ -27,9 +27,11 @@ class MotionPlanning(Drone):
 	def __init__(self, connection):
 		super().__init__(connection)
 
+		# Logging
 		self.start_time = time.time()
 		self.binary_occupancy_grid = np.array([])
-		self.goal_local_pos = None
+		self.waypoints_log = []
+		self.goal_grid_index = None
 
 		self.target_position = np.array([0.0, 0.0, 0.0, 0.0]) # North, East, Altitude, Heading
 		self.waypoints = []
@@ -39,10 +41,6 @@ class MotionPlanning(Drone):
 		self.destinations = read_destinations('destinations.json')
 		self.destination = {}
 		
-		with open("local_positions.csv", mode="w", newline="") as file:
-			writer = csv.writer(file)
-			writer.writerow(["North", "East", "Down", "North Target", "East Target", "Down Target", "State", "Ground Distance from Target", "Seconds Since Instantiation"])  # Optional: Write the header row
-
 		# initial state
 		self.flight_state = States.MANUAL
 
@@ -52,14 +50,12 @@ class MotionPlanning(Drone):
 		self.register_callback(MsgID.STATE, self.state_callback)
 
 	def local_position_callback(self):
-
-		print( (distance.euclidean(self.target_position[0:2], self.local_position[0:2]), self.flight_state, self.goal_local_pos) )
 		if self.flight_state == States.TAKEOFF:
 			if 1.05 * self.destination['alt'] > -1.0 * self.local_position[2] > 0.95 * self.destination['alt']:
 				self.waypoint_transition()
 		elif self.flight_state == States.WAYPOINT:
 			drone_speed = np.linalg.norm(self.local_velocity)
-			deadband_radius = 5 #4 + 4 * drone_speed
+			deadband_radius = 0.25 + drone_speed #4 + 4 * drone_speed
 			if distance.euclidean(self.target_position[0:2], self.local_position[0:2]) < deadband_radius:
 				if len(self.waypoints) > 0:
 					self.waypoint_transition()
@@ -79,6 +75,8 @@ class MotionPlanning(Drone):
 			elif self.flight_state == States.ARMING:
 				if self.armed:
 					self.destination = self.destinations.pop(0)
+					# Generate a boolean occupancy grid at the destination altitude
+					self.binary_occupancy_grid = generate_binary_occupancy_grid(self.elevation_map, self.destination['alt'])
 					self.plan_path(self.destination)
 			elif self.flight_state == States.PLANNING:
 				self.takeoff_transition()
@@ -133,7 +131,7 @@ class MotionPlanning(Drone):
 
 		self.flight_state = States.PLANNING
 
-		PREDICTION_HORIZON = 40 # meters
+		PREDICTION_HORIZON = 20 # meters
 		SAFETY_DISTANCE = 5 # meters 
 		
 		# Calculate the drone's current position in the NED frame
@@ -148,8 +146,6 @@ class MotionPlanning(Drone):
 		# Format the destination geodetic coordinates into a tuple, and calculate the goal location in NED.
 		goal_global_pos = (destination['lon'], destination['lat'], destination['alt'])
 		goal_local_pos = global_to_local(goal_global_pos, self.global_home)
-		
-		self.goal_local_pos = goal_local_pos 
 
 		# Calculate an intermediate goal
 		direction = (goal_local_pos - current_local_pos) / np.linalg.norm(goal_local_pos - current_local_pos)
@@ -163,20 +159,19 @@ class MotionPlanning(Drone):
 		# Set intermediate goal altitude to be the same as the destination altitude
 		intermediate_goal_altitude = destination['alt'] 
 
-		# Generate a boolean occupancy grid at the destination altitude
-		self.binary_occupancy_grid = generate_binary_occupancy_grid(self.elevation_map, destination['alt'])
-
 		# Check if the intermediate goal position is occupied, and, if so, set it to the nearest free position
-		if collides(self.elevation_map, intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude):
-			intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude = calculate_nearest_free_cell_in_2d(self.elevation_map, intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude)
-			intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude)
+		if self.elevation_map[intermediate_goal_northing_index][intermediate_goal_easting_index] > intermediate_goal_altitude:
+			intermediate_goal_northing_index, intermediate_goal_easting_index = calculate_nearest_free_cell_in_2d(self.elevation_map, intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude)
+			intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index)
 
 		# Update takeoff altitude
 		self.target_position[2] = intermediate_goal_altitude
 
-		print("current grid index, ", current_grid_index)
+		# Logging
+		print("current grid index, ", current_grid_index) 
 		print("intermediate goal grid index, ", intermediate_goal_grid_index)
 		print("goal local position, ", goal_local_pos) 
+
 
 		# Run A* to find a grid-frame path from current location to intermediate goal
 		path, cost = a_star(self.elevation_map, current_grid_index, intermediate_goal_grid_index, destination['alt'], distance.euclidean)
@@ -190,9 +185,19 @@ class MotionPlanning(Drone):
 		# Set self.waypoints
 		self.waypoints = waypoints 
 
-		# Send the waypoints to the simulator
-		# self.send_waypoints()
+		# Logging
 		print(self.waypoints)
+		for northing_index, easting_index in path:
+			self.waypoints_log.append([easting_index, northing_index])
+		self.goal_grid_index = [int(goal_local_pos[1] - self.ned_boundaries[2]), int(goal_local_pos[0] - self.ned_boundaries[0])]
+		np_goal_grid_index = np.array(self.goal_grid_index)
+		np.save('goal_grid_index.npy', np_goal_grid_index)
+		np_waypoints_log = np.array(self.waypoints_log)
+		np.save('waypoints_log.npy', self.waypoints_log)
+		np.save('binary_occupancy_grid.npy', self.binary_occupancy_grid)
+
+		# Send the waypoints to the simulator
+		#self.send_waypoints()
 
 
 
