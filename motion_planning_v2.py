@@ -40,6 +40,7 @@ class MotionPlanning(Drone):
 		self.elevation_map, self.ned_boundaries, self.map_size = build_map_and_take_measurements('colliders.csv')
 		self.destinations = read_destinations('destinations.json')
 		self.destination = {}
+		self.destination_local_position = None
 		
 		# initial state
 		self.flight_state = States.MANUAL
@@ -60,7 +61,10 @@ class MotionPlanning(Drone):
 				if len(self.waypoints) > 0:
 					self.waypoint_transition()
 				else:
-					self.plan_path(self.destination)
+					if distance.euclidean(self.local_position[0:2], self.destination_local_position[0:2]) <= 1.0:
+						self.landing_transition()
+					else:
+						self.plan_path(self.destination)
 
 	def velocity_callback(self):
 		if self.flight_state == States.LANDING:
@@ -143,26 +147,35 @@ class MotionPlanning(Drone):
 		# Format the destination geodetic coordinates into a tuple, and calculate the goal location in NED.
 		goal_global_pos = (destination['lon'], destination['lat'], destination['alt'])
 		goal_local_pos = global_to_local(goal_global_pos, self.global_home)
+		self.destination_local_position = goal_local_pos
 
 		# Calculate an intermediate goal
 		direction = (goal_local_pos - current_local_pos) / np.linalg.norm(goal_local_pos - current_local_pos)
 		intermediate_goal_local_pos = current_local_pos + direction * PREDICTION_HORIZON
 
+		# Set the intermediate goal to the destination local position if the drone's nearby
+		if distance.euclidean(current_local_pos, goal_local_pos) <= PREDICTION_HORIZON:
+			interermediate_goal_local_pos = goal_local_pos
+			
+
 		# Check if intermediate goal is occupied, and if so, reset intermediate goal to be the closest free cell
 		intermediate_goal_northing_index = int(intermediate_goal_local_pos[0] - self.ned_boundaries[0])
 		intermediate_goal_easting_index = int(intermediate_goal_local_pos[1] - self.ned_boundaries[2])
 		intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index)
-		
+
 		# Set intermediate goal altitude to be the same as the destination altitude
 		intermediate_goal_altitude = destination['alt'] 
 
 		# Check if the intermediate goal position is occupied, and, if so, set it to the nearest free position
-
-		print(self.elevation_map[intermediate_goal_northing_index][intermediate_goal_easting_index] > intermediate_goal_altitude)
 		if self.elevation_map[intermediate_goal_northing_index][intermediate_goal_easting_index] > intermediate_goal_altitude:
 			intermediate_goal_northing_index, intermediate_goal_easting_index = calculate_nearest_free_cell_in_2d(self.elevation_map, intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude)
 			intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index)
 
+		# If the drone's calculating it's position to be in an occupied location, assume that the drone's actually in the nearest free location
+		if self.elevation_map[current_northing_index][current_easting_index] > destination['alt']: #modify to current_altitude
+			print('OCCUPIED')
+			current_grid_index = calculate_nearest_free_cell_in_2d(self.elevation_map, current_northing_index, current_easting_index, destination['alt'])
+		
 		# Update takeoff altitude
 		self.target_position[2] = intermediate_goal_altitude
 
@@ -176,7 +189,7 @@ class MotionPlanning(Drone):
 		waypoints = path_to_waypoints(path, self.ned_boundaries, intermediate_goal_altitude)
 
 		# Set self.waypoints
-		self.waypoints = waypoints 
+		self.waypoints = waypoints
 
 		# Logging
 		print(self.waypoints)
