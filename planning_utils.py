@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial import distance
 import csv
 import utm
 from queue import PriorityQueue
@@ -82,6 +83,12 @@ def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int
 		elevation_map[obstacle_boundaries[0]:obstacle_boundaries[1] + 1, obstacle_boundaries[2]:obstacle_boundaries[3] + 1] = height - ned_boundaries[4]
 
 	return elevation_map, ned_boundaries, map_size
+
+def generate_binary_occupancy_grid(elevation_map: np.ndarray, altitude: float):
+	"""Create a binary occupancy grid based on the given altitude"""
+
+	binary_occupancy_grid = (elevation_map <= altitude)
+	return binary_occupancy_grid
 
 def calculate_ned_boundaries_and_map_size(map_data: np.ndarray, safety_distance: float) -> Tuple[List[int], List[int]]:
 	"""
@@ -254,10 +261,10 @@ def remove_collinear(path: List[Tuple[int, int]]):
 		x1, y1 = path[i]
 		x2, y2 = path[i + 1]
 		x3, y3 = path[i + 2]
-		#array = np.array([[x1, y1, 1], [x2, y2, 1], [x3, y3, 1]])
+		array = np.array([[x1, y1, 1], [x2, y2, 1], [x3, y3, 1]])
 		tolerance = 0.1
-		#collinear = np.linalg.det(array) <= tolerance
-		collinear = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0
+		collinear = np.linalg.det(array) <= tolerance
+		#collinear = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0
 		if collinear:
 			del path[i + 1]
 		else:
@@ -281,12 +288,7 @@ def valid_actions(elevation_map: np.ndarray, gridcell: Tuple[int, int], altitude
 
 	return valid
 
-def euclidean_distance(point: Tuple[int, int], goal: Tuple[int, int]) -> float:
-	point = np.array([point[0], point[1]])
-	goal = np.array([goal[0], goal[1]])
-	return np.linalg.norm(goal - point)
-
-def a_star(elevation_map: np.ndarray, start: Tuple[int, int], goal: Tuple[int, int], goal_altitude: float, heuristic_function: Callable[[np.ndarray, np.ndarray], float]):
+def a_star(elevation_map: np.ndarray, start: Tuple[int, int], goal: Tuple[int, int], goal_altitude: float, heuristic_function):
 	"""Returns a path from start to goal, along with the cost"""
 	
 	path = []
@@ -298,7 +300,7 @@ def a_star(elevation_map: np.ndarray, start: Tuple[int, int], goal: Tuple[int, i
 	found = False
 
 	while not queue.empty():
-		
+		 
 		_, current_node = queue.get()
 
 		if current_node == start:

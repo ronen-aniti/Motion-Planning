@@ -28,6 +28,7 @@ class TestPlanningUtils(unittest.TestCase):
 		path = [(100, 1), (101, 1), (102, 1), (102, 2)]
 		expected_result = [(100, 1), (102, 1), (102, 2)]
 		self.assertEqual(expected_result, remove_collinear(path))
+		
 
 	
 
