@@ -84,12 +84,6 @@ def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int
 
 	return elevation_map, ned_boundaries, map_size
 
-def generate_binary_occupancy_grid(elevation_map: np.ndarray, altitude: float):
-	"""Create a binary occupancy grid based on the given altitude"""
-
-	binary_occupancy_grid = (elevation_map <= altitude)
-	return binary_occupancy_grid
-
 def calculate_ned_boundaries_and_map_size(map_data: np.ndarray, safety_distance: float) -> Tuple[List[int], List[int]]:
 	"""
 	Calculate and return the NED boundaries and map size based on the given map data and safety distance.
