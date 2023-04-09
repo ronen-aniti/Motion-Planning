@@ -19,7 +19,7 @@ grid_northings = waypoints_log[:, 1]
 current_eastings = current_grid_index[:, 0]
 current_northings = current_grid_index[:, 1]
 
-plt.plot(grid_eastings, grid_northings, 'bx')
+plt.plot(grid_eastings, grid_northings, 'b-')
 plt.plot(current_eastings, current_northings, 'ro', alpha=0.2)
 plt.scatter(goal_grid_index[0], goal_grid_index[1])
 

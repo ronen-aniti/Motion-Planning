@@ -59,7 +59,7 @@ def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int
 		- map_size (List[int]): A list containing the size of the map [north_size, east_size, alt_size].
 	"""
 	
-	SAFETY_DISTANCE = 5.0
+	SAFETY_DISTANCE = 7.0
 
 	# Convert CSV obstacle data to numpy array
 	map_data = np.loadtxt(filename, delimiter=',', skiprows=2)
@@ -75,10 +75,10 @@ def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int
 		north, east, down, d_north, d_east, d_down = map_data[i, :]
 		height = down + d_down
 		obstacle_boundaries = [
-			int(north - ned_boundaries[0] - d_north - SAFETY_DISTANCE),
-			int(north - ned_boundaries[0] + d_north + SAFETY_DISTANCE),
-			int(east - ned_boundaries[2] - d_east - SAFETY_DISTANCE),
-			int(east - ned_boundaries[2] + d_east + SAFETY_DISTANCE)
+			int(round(north - ned_boundaries[0] - d_north - SAFETY_DISTANCE)),
+			int(round(north - ned_boundaries[0] + d_north + SAFETY_DISTANCE)),
+			int(round(east - ned_boundaries[2] - d_east - SAFETY_DISTANCE)),
+			int(round(east - ned_boundaries[2] + d_east + SAFETY_DISTANCE))
 		]
 		elevation_map[obstacle_boundaries[0]:obstacle_boundaries[1] + 1, obstacle_boundaries[2]:obstacle_boundaries[3] + 1] = height - ned_boundaries[4]
 
@@ -105,12 +105,12 @@ def calculate_ned_boundaries_and_map_size(map_data: np.ndarray, safety_distance:
 
 	# Calculate NED boundaries: North min, North max, East min, East max, Alt min, Alt max
 	ned_boundaries = [
-	int(np.floor(np.amin(map_data[:, 0] - map_data[:, 3])) - safety_distance),
-	int(np.ceil(np.amax(map_data[:, 0] + map_data[:, 3])) + safety_distance),
-	int(np.floor(np.amin(map_data[:, 1] - map_data[:, 4])) - safety_distance),
-	int(np.ceil(np.amax(map_data[:, 1] + map_data[:, 4])) + safety_distance),
+	int(round(np.floor(np.amin(map_data[:, 0] - map_data[:, 3])) - safety_distance)),
+	int(round(np.ceil(np.amax(map_data[:, 0] + map_data[:, 3])) + safety_distance)),
+	int(round(np.floor(np.amin(map_data[:, 1] - map_data[:, 4])) - safety_distance)),
+	int(round(np.ceil(np.amax(map_data[:, 1] + map_data[:, 4])) + safety_distance)),
 	0,
-	int(np.ceil(np.amax(map_data[:, 2] + map_data[:, 5])) + safety_distance)
+	int(round(np.ceil(np.amax(map_data[:, 2] + map_data[:, 5])) + safety_distance))
 	]
 
 
@@ -193,7 +193,6 @@ def calculate_nearest_free_cell_in_2d(elevation_map: np.ndarray, northing_index:
 				# Check if the new indices are within the bounds of the elevation_map
 				if 0 <= new_northing < max_northing and 0 <= new_easting < max_easting:
 					if elevation_map[northing_index + i][easting_index + j] < altitude:
-						print(f"New northing {new_northing}, New easting {new_easting}")
 						return new_northing, new_easting
 		search_radius += 1 
 
@@ -234,7 +233,7 @@ def remove_collinear(path: List[Tuple[int, int]]):
 		x2, y2 = path[i + 1]
 		x3, y3 = path[i + 2]
 		array = np.array([[x1, y1, 1], [x2, y2, 1], [x3, y3, 1]])
-		tolerance = 0.1
+		tolerance = 0.01
 		collinear = np.linalg.det(array) <= tolerance
 		#collinear = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) == 0
 		if collinear:

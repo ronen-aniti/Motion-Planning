@@ -55,16 +55,16 @@ class MotionPlanning(Drone):
 			if 1.05 * self.destination['alt'] > -1.0 * self.local_position[2] > 0.95 * self.destination['alt']:
 				self.waypoint_transition()
 		elif self.flight_state == States.WAYPOINT:
+			if distance.euclidean(self.local_position[0:2], self.destination_local_position[0:2]) <= 2.0:
+				self.landing_transition()
+				return
 			drone_speed = np.linalg.norm(self.local_velocity)
-			deadband_radius = 5 #4 + 4 * drone_speed
+			deadband_radius = 0.25 + 0.25 * drone_speed
 			if distance.euclidean(self.target_position[0:2], self.local_position[0:2]) < deadband_radius:
 				if len(self.waypoints) > 0:
 					self.waypoint_transition()
 				else:
-					if distance.euclidean(self.local_position[0:2], self.destination_local_position[0:2]) <= 1.0:
-						self.landing_transition()
-					else:
-						self.plan_path(self.destination)
+					self.plan_path(self.destination)
 
 	def velocity_callback(self):
 		if self.flight_state == States.LANDING:
@@ -133,15 +133,15 @@ class MotionPlanning(Drone):
 
 		self.flight_state = States.PLANNING
 
-		PREDICTION_HORIZON = 20 # meters
+		PREDICTION_HORIZON = 25 # meters
 		
 		# Calculate the drone's current position in the NED frame
 		current_global_pos = (self._longitude, self._latitude, self._altitude)
 		current_local_pos = global_to_local(current_global_pos, self.global_home)
 
 		# Calculate the drone's position in the grid frame
-		current_northing_index = int(current_local_pos[0] - self.ned_boundaries[0])
-		current_easting_index = int(current_local_pos[1] - self.ned_boundaries[2]) 
+		current_northing_index = int(round(current_local_pos[0] - self.ned_boundaries[0]))
+		current_easting_index = int((current_local_pos[1] - self.ned_boundaries[2]))
 		current_grid_index = (current_northing_index, current_easting_index)
 
 		# Format the destination geodetic coordinates into a tuple, and calculate the goal location in NED.
@@ -156,11 +156,11 @@ class MotionPlanning(Drone):
 		# Set the intermediate goal to the destination local position if the drone's nearby
 		if distance.euclidean(current_local_pos, goal_local_pos) <= PREDICTION_HORIZON:
 			interermediate_goal_local_pos = goal_local_pos
-			
 
 		# Check if intermediate goal is occupied, and if so, reset intermediate goal to be the closest free cell
-		intermediate_goal_northing_index = int(intermediate_goal_local_pos[0] - self.ned_boundaries[0])
-		intermediate_goal_easting_index = int(intermediate_goal_local_pos[1] - self.ned_boundaries[2])
+		# This measure prevents the drone from trying to plan a path to an occupied location
+		intermediate_goal_northing_index = int(round(intermediate_goal_local_pos[0] - self.ned_boundaries[0]))
+		intermediate_goal_easting_index = int(round(intermediate_goal_local_pos[1] - self.ned_boundaries[2]))
 		intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index)
 
 		# Set intermediate goal altitude to be the same as the destination altitude
@@ -170,10 +170,11 @@ class MotionPlanning(Drone):
 		if self.elevation_map[intermediate_goal_northing_index][intermediate_goal_easting_index] > intermediate_goal_altitude:
 			intermediate_goal_northing_index, intermediate_goal_easting_index = calculate_nearest_free_cell_in_2d(self.elevation_map, intermediate_goal_northing_index, intermediate_goal_easting_index, intermediate_goal_altitude)
 			intermediate_goal_grid_index = (intermediate_goal_northing_index, intermediate_goal_easting_index)
+			print(intermediate_goal_grid_index)
 
-		# If the drone's calculating it's position to be in an occupied location, assume that the drone's actually in the nearest free location
-		if self.elevation_map[current_northing_index][current_easting_index] > destination['alt']: #modify to current_altitude
-			print('OCCUPIED')
+		# If the drone's calculating its position to be in an occupied location, assume that the drone's actually in the nearest free location
+		# According to Udacity, the colliders map has imperfections, so the drone may sometimes think it's in an occupied position when it isn't.
+		if self.elevation_map[current_northing_index][current_easting_index] > -1.0 * current_local_pos[2]:
 			current_grid_index = calculate_nearest_free_cell_in_2d(self.elevation_map, current_northing_index, current_easting_index, destination['alt'])
 		
 		# Update takeoff altitude
@@ -196,7 +197,7 @@ class MotionPlanning(Drone):
 		if path:
 			for northing_index, easting_index in path:
 				self.waypoints_log.append([easting_index, northing_index])
-			self.goal_grid_index = [int(goal_local_pos[1] - self.ned_boundaries[2]), int(goal_local_pos[0] - self.ned_boundaries[0])]
+			self.goal_grid_index = [int(round(goal_local_pos[1] - self.ned_boundaries[2])), int(round(goal_local_pos[0] - self.ned_boundaries[0]))]
 			np_goal_grid_index = np.array(self.goal_grid_index)
 			np.save('goal_grid_index.npy', np_goal_grid_index)
 			np_waypoints_log = np.array(self.waypoints_log)
