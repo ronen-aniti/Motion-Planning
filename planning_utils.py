@@ -1,5 +1,11 @@
 import numpy as np
+from sklearn.neighbors import KDTree
+from scipy.spatial import Voronoi
+import networkx as nx
+from bresenham import bresenham
 from scipy.spatial import distance
+from shapely.geometry import Polygon, Point
+from shapely import STRtree
 import csv
 import utm
 from queue import PriorityQueue
@@ -7,6 +13,17 @@ from typing import Tuple, List, Dict, Callable
 import json
 from enum import Enum
 import pdb
+
+def get_user_choice() -> int:
+	print("Choose a planning scheme:")
+	print("1. 2d Grid")
+	print("2. Voronoi graph")
+	print("3. Probabilistic roadmap (PRM)")
+	print("4. Rapidly-exploring random tree (RRT)")
+	print("5. Potential field")
+
+	choice = int(intput("Enter the number corresponding to your choice: "))
+	return choice
 
 def read_global_home(filename: str) -> Tuple[float, float, float]:
 	"""
@@ -122,6 +139,8 @@ def calculate_ned_boundaries_and_map_size(map_data: np.ndarray, safety_distance:
 	]
 
 	return ned_boundaries, map_size 
+def build_voronoi_graph(altitude: float) -> nx.Voronoi:
+	pass
 
 def read_destinations(filename: str) -> List[Dict[str, float]]:
 	"""

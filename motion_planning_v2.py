@@ -11,7 +11,9 @@ from scipy.spatial import distance
 from planning_utils import (read_global_home, build_map_and_take_measurements, 
 							read_destinations, global_to_local,
 							calculate_nearest_free_cell_in_2d,  
-							a_star, remove_collinear, path_to_waypoints)
+							a_star, remove_collinear, path_to_waypoints,
+							get_user_choice)
+from battery import Battery
 import pdb
 
 class States(Enum): 
@@ -37,7 +39,7 @@ class MotionPlanning(Drone):
 		self.waypoints = []
 		self.in_mission = True
 		self.check_state = {}
-		self.elevation_map, self.ned_boundaries, self.map_size = build_map_and_take_measurements('colliders.csv')
+		self.elevation_map, self.ned_boundaries, self.map_size = build_map_and_take_measurements('colliders.csv') 
 		self.destinations = read_destinations('destinations.json')
 		self.destination = {}
 		self.destination_local_position = None
@@ -78,7 +80,7 @@ class MotionPlanning(Drone):
 				self.arming_transition()
 			elif self.flight_state == States.ARMING:
 				if self.armed:
-					self.destination = self.destinations.pop(0)
+				 	self.destination = self.destinations.pop(0)
 					self.plan_path(self.destination)
 			elif self.flight_state == States.PLANNING:
 				self.takeoff_transition()
@@ -129,7 +131,7 @@ class MotionPlanning(Drone):
 		self.release_control()
 	 
 
-	def plan_path(self, destination: Dict[str, float]) -> None:
+	def plan_path(self, destination: Dict[str, float], planning_scheme: int) -> None:
 
 		self.flight_state = States.PLANNING
 
@@ -180,9 +182,13 @@ class MotionPlanning(Drone):
 		# Update takeoff altitude
 		self.target_position[2] = intermediate_goal_altitude
 
-		# Run A* to find a grid-frame path from current location to intermediate goal
-		path, cost = a_star(self.elevation_map, current_grid_index, intermediate_goal_grid_index, destination['alt'], distance.euclidean)
-		
+		if planning_scheme == 1:
+			# Run A* to find a grid-frame path from current location to intermediate goal
+			path, cost = a_star(self.elevation_map, current_grid_index, intermediate_goal_grid_index, destination['alt'], distance.euclidean)
+		elif planning_scheme == 2:
+			voronoi_diagram = build_a_voronoi_diagram_from_elevation_map(self.elevation_map, destination['alt'])
+			voronoi_graph = build_a_connected_voronoi_graph(voronoi_diagram)
+			path, cost = search_voronoi_graph_with_a_star(voronoi_graph)
 		# Remove the collinear elements from the grid-frame path
 		path = remove_collinear(path)
 
@@ -213,8 +219,6 @@ class MotionPlanning(Drone):
 		#self.send_waypoints()
 
 
-
-
 	def send_waypoints(self):
 		print("Sending waypoint to simulator...")
 		data = msgpack.dumps(self.waypoints)
@@ -227,6 +231,12 @@ class MotionPlanning(Drone):
 		self.stop_log()
 
 if __name__ == "__main__":
+
+	# Build obstacle map here.
+	## extract_obstacle_polygons_heights_and_centers('colliders.csv')
+
+	planning_scheme = get_user_choice()
+
 	conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
 	drone = MotionPlanning(conn)
 	time.sleep(2)
