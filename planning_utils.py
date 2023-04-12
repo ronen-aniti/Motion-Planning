@@ -21,6 +21,37 @@ local_position = NED delta from global home (0,0,0)
 ned_boundaries = base NED coordinates
 obstacle center distance - ned_boundary = grid center value 
 """
+
+class ElevationMap():
+	def __init__(self, filename: str):
+		self.elevation_map, self.ned_boundaries, self.map_size, self.map_data = self.build_map_and_take_measurements(filename)
+		
+	def build_map_and_take_measurements(self, filename):
+		SAFETY_DISTANCE = 7.0
+
+		# Convert CSV obstacle data to numpy array
+		map_data = np.loadtxt(filename, delimiter=',', skiprows=2)
+
+		# Calculate NED boundaries and map size
+		ned_boundaries, map_size = calculate_ned_boundaries_and_map_size(map_data, SAFETY_DISTANCE)
+
+		# Initialize a grid of zeros
+		elevation_map = np.zeros((map_size[0], map_size[1]))
+
+		# Build a 2.5D grid representation of the drone's environment
+		for i in range(map_data.shape[0]):
+			north, east, down, d_north, d_east, d_down = map_data[i, :]
+			height = down + d_down
+			obstacle_boundaries = [
+				int(round(north - ned_boundaries[0] - d_north - SAFETY_DISTANCE)),
+				int(round(north - ned_boundaries[0] + d_north + SAFETY_DISTANCE)),
+				int(round(east - ned_boundaries[2] - d_east - SAFETY_DISTANCE)),
+				int(round(east - ned_boundaries[2] + d_east + SAFETY_DISTANCE))
+			]
+			elevation_map[obstacle_boundaries[0]:obstacle_boundaries[1] + 1, obstacle_boundaries[2]:obstacle_boundaries[3] + 1] = height - ned_boundaries[4] + SAFETY_DISTANCE
+
+		return elevation_map, ned_boundaries, map_size, map_data
+
 class PlanningScheme(Enum):
 	GRID_2D = auto()
 	VORONOI = auto()
@@ -28,21 +59,33 @@ class PlanningScheme(Enum):
 	RRT = auto()
 	POTENTIAL_FIELD = auto()
 
+	def __str__(self):
+		if self == self.GRID_2D:
+			return 'Grid 2d'
+		if self == self.VORONOI:
+			return 'Voronoi graph'
+		if self == self.PRM:
+			return 'Probabilistic roadmap (PRM)'
+		if self == self.RRT:
+			return 'Rapidly-exploring random tree (RRT)'
+		if self == self.POTENTIAL_FIELD:
+			return 'Potential Field'
+
 def build_a_connected_voronoi_graph(elevation_map: np.ndarray, voronoi_diagram: Voronoi, altitude: float):
 	voronoi_graph_edges = []
 	for ridge_vertex in voronoi_diagram.ridge_vertices:
-		start_point_ridge_vertex_index = ridge_vertex[0]
-		end_point_ridge_vertex_index = ridge_vertex[1]
-		start_point_of_candidate_edge = voronoi_diagram.ridge_vertices[start_point_ridge_vertex_index]
-		end_point_of_candidate_edge = voronoi_diagram.ridge_vertices[start_point_ridge_vertex_index]
-		start_point_northing_on_grid = int(start_point_of_candidate_edge[0])
-		start_point_easting_on_grid = int(start_point_of_candidate_edge[1])
-		end_point_northing_on_grid = int(end_point_of_candidate_edge[0])
-		end_point_easting_on_grid = int(end_point_of_candidate_edge[1])
+		start_point_ridge_vertex_index = ridge_vertex[0] # Start point of ridge index
+		end_point_ridge_vertex_index = ridge_vertex[1] # End point of ridge index
+		start_point_of_candidate_edge = voronoi_diagram.vertices[start_point_ridge_vertex_index]
+		end_point_of_candidate_edge = voronoi_diagram.vertices[end_point_ridge_vertex_index]
+		start_point_northing_on_grid = int(round(start_point_of_candidate_edge[0]))
+		start_point_easting_on_grid = int(round(start_point_of_candidate_edge[1]))
+		end_point_northing_on_grid = int(round(end_point_of_candidate_edge[0]))
+		end_point_easting_on_grid = int(round(end_point_of_candidate_edge[1]))
 		grid_cells_between_points = bresenham(start_point_northing_on_grid,
-											start_point_easting_on_grid,
-											end_point_northing_on_grid,
-											end_point_easting_on_grid)
+												start_point_easting_on_grid,
+												end_point_northing_on_grid,
+												end_point_easting_on_grid)
 		collides = False
 		
 		northing_max = elevation_map.shape[0]
@@ -52,7 +95,8 @@ def build_a_connected_voronoi_graph(elevation_map: np.ndarray, voronoi_diagram: 
 			grid_cell_northing = grid_cell[0]
 			grid_cell_easting = grid_cell[1]
 			# Check if grid cell in question is off-grid
-			if grid_cell_northing < 0 or grid_cell_northing >= northing_max:
+			if (grid_cell_northing < 0 or grid_cell_northing >= northing_max or 
+					grid_cell_easting < 0 or grid_cell_easting >= easting_max):
 				collides = True
 				break
 			# Check if grid cell in question is inside an obstacle
@@ -60,12 +104,18 @@ def build_a_connected_voronoi_graph(elevation_map: np.ndarray, voronoi_diagram: 
 				collides = True
 				break
 		if not collides:
-			start_point_of_edge = (start_point_of_candidate_edge[0], start_point_of_candidate_edge[1])
-			end_point_of_edge = (end_point_of_candidate_edge[0], end_point_of_candidate_edge[1])
+			start_point_of_edge = (int(round(start_point_of_candidate_edge[0])), 
+									int(round(start_point_of_candidate_edge[1])))
+			end_point_of_edge = (int(round(end_point_of_candidate_edge[0])), 
+									int(round(end_point_of_candidate_edge[1])))
 
 			voronoi_graph_edges.append((start_point_of_edge, end_point_of_edge))
 
-	return voronoi_graph_edges
+	# Stepping through each edge
+		
+	pdb.set_trace()
+
+	return voronoi_graph_edges 
 
 
 
@@ -108,7 +158,7 @@ def get_user_planning_scheme() -> PlanningScheme:
 
 	print("Choose a planning scheme:")
 	for scheme in PlanningScheme:
-		print(f"{scheme.name}: {scheme.value}")
+		print(f"{scheme}: {scheme.value}")
 	choice = input("Enter the number corresponding to your choice: ")
 
 	try:
