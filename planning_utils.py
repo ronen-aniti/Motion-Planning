@@ -1,29 +1,123 @@
 import numpy as np
 from sklearn.neighbors import KDTree
-from scipy.spatial import Voronoi
+from scipy.spatial import Voronoi, voronoi_plot_2d
 import networkx as nx
 from bresenham import bresenham
 from scipy.spatial import distance
 from shapely.geometry import Polygon, Point
-from shapely import STRtree
+import matplotlib.pyplot as plt
 import csv
 import utm
 from queue import PriorityQueue
-from typing import Tuple, List, Dict, Callable
+from typing import Tuple, List, Dict, Callable, Set
 import json
-from enum import Enum
+from enum import Enum, auto
 import pdb
 
-def get_user_choice() -> int:
-	print("Choose a planning scheme:")
-	print("1. 2d Grid")
-	print("2. Voronoi graph")
-	print("3. Probabilistic roadmap (PRM)")
-	print("4. Rapidly-exploring random tree (RRT)")
-	print("5. Potential field")
+"""
+Coordinate frames:
 
-	choice = int(intput("Enter the number corresponding to your choice: "))
-	return choice
+local_position = NED delta from global home (0,0,0)
+ned_boundaries = base NED coordinates
+obstacle center distance - ned_boundary = grid center value 
+"""
+class PlanningScheme(Enum):
+	GRID_2D = auto()
+	VORONOI = auto()
+	PRM = auto()
+	RRT = auto()
+	POTENTIAL_FIELD = auto()
+
+def build_a_connected_voronoi_graph(elevation_map: np.ndarray, voronoi_diagram: Voronoi, altitude: float):
+	voronoi_graph_edges = []
+	for ridge_vertex in voronoi_diagram.ridge_vertices:
+		start_point_ridge_vertex_index = ridge_vertex[0]
+		end_point_ridge_vertex_index = ridge_vertex[1]
+		start_point_of_candidate_edge = voronoi_diagram.ridge_vertices[start_point_ridge_vertex_index]
+		end_point_of_candidate_edge = voronoi_diagram.ridge_vertices[start_point_ridge_vertex_index]
+		start_point_northing_on_grid = int(start_point_of_candidate_edge[0])
+		start_point_easting_on_grid = int(start_point_of_candidate_edge[1])
+		end_point_northing_on_grid = int(end_point_of_candidate_edge[0])
+		end_point_easting_on_grid = int(end_point_of_candidate_edge[1])
+		grid_cells_between_points = bresenham(start_point_northing_on_grid,
+											start_point_easting_on_grid,
+											end_point_northing_on_grid,
+											end_point_easting_on_grid)
+		collides = False
+		
+		northing_max = elevation_map.shape[0]
+		easting_max = elevation_map.shape[1]
+
+		for grid_cell in grid_cells_between_points:
+			grid_cell_northing = grid_cell[0]
+			grid_cell_easting = grid_cell[1]
+			# Check if grid cell in question is off-grid
+			if grid_cell_northing < 0 or grid_cell_northing >= northing_max:
+				collides = True
+				break
+			# Check if grid cell in question is inside an obstacle
+			if elevation_map[grid_cell_northing][grid_cell_easting] > altitude:
+				collides = True
+				break
+		if not collides:
+			start_point_of_edge = (start_point_of_candidate_edge[0], start_point_of_candidate_edge[1])
+			end_point_of_edge = (end_point_of_candidate_edge[0], end_point_of_candidate_edge[1])
+
+			voronoi_graph_edges.append((start_point_of_edge, end_point_of_edge))
+
+	return voronoi_graph_edges
+
+
+
+
+
+
+def extract_obstacle_geometry(map_data: np.ndarray, ned_boundaries: List[int]) -> List[Tuple[Polygon, Point, float]]:
+	"""Return a set containing a tuple for each obstacle that contains a Shapely Polygon object, a Shapely
+	Point object, and a float value indicating the obstacle's height"""
+	
+	SAFETY_DISTANCE = 10.0
+
+	obstacle_geometry = []
+	for row_number in range(map_data.shape[0]):
+		north, east, down, d_north, d_east, d_down = map_data[row_number, :]
+		obstacle_center_on_grid = Point(np.array([int(round(north - ned_boundaries[0])), int(round(east - ned_boundaries[2]))]))
+		obstacle_boundaries_on_grid = [
+			int(round(north - ned_boundaries[0] - d_north - SAFETY_DISTANCE)),
+			int(round(north - ned_boundaries[0] + d_north + SAFETY_DISTANCE)),
+			int(round(east - ned_boundaries[2] - d_east - SAFETY_DISTANCE)),
+			int(round(east - ned_boundaries[2] + d_east + SAFETY_DISTANCE))
+		]
+		point_1 = np.array([obstacle_boundaries_on_grid[0], obstacle_boundaries_on_grid[2]])
+		point_2 = np.array([obstacle_boundaries_on_grid[0], obstacle_boundaries_on_grid[3]])
+		point_3 = np.array([obstacle_boundaries_on_grid[1], obstacle_boundaries_on_grid[3]])
+		point_4 = np.array([obstacle_boundaries_on_grid[1], obstacle_boundaries_on_grid[2]])
+
+		boundary_points_as_array = np.array([point_1, point_2, point_3, point_4])
+		obstacle_polygon_on_grid = Polygon(boundary_points_as_array)
+		obstacle_height = down + d_down - ned_boundaries[4] + SAFETY_DISTANCE
+		obstacle_geometry.append((obstacle_polygon_on_grid, obstacle_center_on_grid, obstacle_height))
+
+	return obstacle_geometry
+
+
+
+
+def get_user_planning_scheme() -> PlanningScheme:
+	"""Prompt the user to select a planning scheme"""
+
+	print("Choose a planning scheme:")
+	for scheme in PlanningScheme:
+		print(f"{scheme.name}: {scheme.value}")
+	choice = input("Enter the number corresponding to your choice: ")
+
+	try:
+		selected_scheme = PlanningScheme(int(choice))
+	except ValueError:
+		print("Invalid choice. Please try again.")
+		return get_user_planning_scheme()
+
+	return selected_scheme
 
 def read_global_home(filename: str) -> Tuple[float, float, float]:
 	"""
@@ -58,7 +152,20 @@ def read_global_home(filename: str) -> Tuple[float, float, float]:
 	# Return the global home coordinates as a tuple (lon, lat, alt)
 	return (lon0, lat0, 0.0)
 
-def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int], List[int]]:
+def create_voronoi_diagram(map_data: np.ndarray, ned_boundaries: List[int], map_size: List[int], altitude: float) -> Voronoi:
+	SAFETY_DISTANCE = 10.0
+	obstacle_center_coordinates = []
+	for i in range(map_data.shape[0]):
+		north, east, down, d_north, d_east, d_down = map_data[i, :]
+		if down + d_down + SAFETY_DISTANCE > altitude:
+			obstacle_center_coordinates.append((int(round(north - ned_boundaries[0])), int(round(east - ned_boundaries[2]))))
+
+	# Construct a Voronoi diagram
+	voronoi_diagram = Voronoi(obstacle_center_coordinates)
+
+	return voronoi_diagram
+
+def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int], List[int], np.array]:
 	"""
 	Returns a 2.5D map of the drone's environment and NED boundaries.
 
@@ -97,9 +204,10 @@ def build_map_and_take_measurements(filename: str) -> Tuple[np.ndarray, List[int
 			int(round(east - ned_boundaries[2] - d_east - SAFETY_DISTANCE)),
 			int(round(east - ned_boundaries[2] + d_east + SAFETY_DISTANCE))
 		]
-		elevation_map[obstacle_boundaries[0]:obstacle_boundaries[1] + 1, obstacle_boundaries[2]:obstacle_boundaries[3] + 1] = height - ned_boundaries[4]
+		elevation_map[obstacle_boundaries[0]:obstacle_boundaries[1] + 1, obstacle_boundaries[2]:obstacle_boundaries[3] + 1] = height - ned_boundaries[4] + SAFETY_DISTANCE
 
-	return elevation_map, ned_boundaries, map_size
+
+	return elevation_map, ned_boundaries, map_size, map_data
 
 def calculate_ned_boundaries_and_map_size(map_data: np.ndarray, safety_distance: float) -> Tuple[List[int], List[int]]:
 	"""
@@ -139,7 +247,8 @@ def calculate_ned_boundaries_and_map_size(map_data: np.ndarray, safety_distance:
 	]
 
 	return ned_boundaries, map_size 
-def build_voronoi_graph(altitude: float) -> nx.Voronoi:
+
+def build_voronoi_graph(altitude: float):
 	pass
 
 def read_destinations(filename: str) -> List[Dict[str, float]]:

@@ -12,7 +12,9 @@ from planning_utils import (read_global_home, build_map_and_take_measurements,
 							read_destinations, global_to_local,
 							calculate_nearest_free_cell_in_2d,  
 							a_star, remove_collinear, path_to_waypoints,
-							get_user_choice)
+							get_user_planning_scheme, PlanningScheme,
+							create_voronoi_diagram, extract_obstacle_geometry, 
+							make_connected_graph_from_voronoi_diagram)
 from battery import Battery
 import pdb
 
@@ -26,7 +28,7 @@ class States(Enum):
 	PLANNING = auto()
 
 class MotionPlanning(Drone):
-	def __init__(self, connection):
+	def __init__(self, connection, planning_scheme):
 		super().__init__(connection)
 
 		# Logging
@@ -39,11 +41,22 @@ class MotionPlanning(Drone):
 		self.waypoints = []
 		self.in_mission = True
 		self.check_state = {}
-		self.elevation_map, self.ned_boundaries, self.map_size = build_map_and_take_measurements('colliders.csv') 
+		self.elevation_map, self.ned_boundaries, self.map_size, self.map_data = build_map_and_take_measurements('colliders.csv')
+
+		# Extract obstacle geometry
+		self.obstacle_geometry = extract_obstacle_geometry(self.map_data, self.ned_boundaries)
+
+		if planning_scheme == PlanningScheme.VORONOI:
+			# Build a Voronoi diagram
+			self.voronoi_diagram = create_voronoi_diagram(self.elevation_map, self.ned_boundaries, self.map_size, self.map_data)
+			# Build a connected graph from the Voronoi diagram
+			self.voronoi_graph = make_connected_graph_from_voronoi_diagram(self.voronoi_diagram, self.elevation_map, self.map_size)
+
 		self.destinations = read_destinations('destinations.json')
 		self.destination = {}
 		self.destination_local_position = None
 		
+		pdb.set_trace()
 		# initial state
 		self.flight_state = States.MANUAL
 
@@ -80,7 +93,7 @@ class MotionPlanning(Drone):
 				self.arming_transition()
 			elif self.flight_state == States.ARMING:
 				if self.armed:
-				 	self.destination = self.destinations.pop(0)
+					self.destination = self.destinations.pop(0)
 					self.plan_path(self.destination)
 			elif self.flight_state == States.PLANNING:
 				self.takeoff_transition()
@@ -182,13 +195,15 @@ class MotionPlanning(Drone):
 		# Update takeoff altitude
 		self.target_position[2] = intermediate_goal_altitude
 
-		if planning_scheme == 1:
+		if selected_planning_scheme == PlanningScheme.GRID_2D:
 			# Run A* to find a grid-frame path from current location to intermediate goal
 			path, cost = a_star(self.elevation_map, current_grid_index, intermediate_goal_grid_index, destination['alt'], distance.euclidean)
-		elif planning_scheme == 2:
+		"""
+		elif selected_planning_scheme == PlanningScheme.VORONOI:
 			voronoi_diagram = build_a_voronoi_diagram_from_elevation_map(self.elevation_map, destination['alt'])
 			voronoi_graph = build_a_connected_voronoi_graph(voronoi_diagram)
 			path, cost = search_voronoi_graph_with_a_star(voronoi_graph)
+		"""
 		# Remove the collinear elements from the grid-frame path
 		path = remove_collinear(path)
 
@@ -233,11 +248,11 @@ class MotionPlanning(Drone):
 if __name__ == "__main__":
 
 	# Build obstacle map here.
-	## extract_obstacle_polygons_heights_and_centers('colliders.csv')
+	# extract_obstacle_geometry('colliders.csv')
 
-	planning_scheme = get_user_choice()
+	planning_scheme = get_user_planning_scheme()
 
 	conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
-	drone = MotionPlanning(conn)
+	drone = MotionPlanning(conn, planning_scheme)
 	time.sleep(2)
 	drone.start()

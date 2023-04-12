@@ -1,5 +1,5 @@
 import unittest
-from planning_utils import calculate_nearest_free_cell_in_2d, collides, build_map_and_take_measurements, read_destinations, Actions, a_star, euclidean_distance, remove_collinear
+from planning_utils import calculate_nearest_free_cell_in_2d, build_map_and_take_measurements, read_destinations, Actions, a_star, remove_collinear, get_user_planning_scheme
 import numpy as np
 import csv
 import pdb
@@ -28,7 +28,9 @@ class TestPlanningUtils(unittest.TestCase):
 		path = [(100, 1), (101, 1), (102, 1), (102, 2)]
 		expected_result = [(100, 1), (102, 1), (102, 2)]
 		self.assertEqual(expected_result, remove_collinear(path))
-		
+	def test_get_user_planning_scheme(self):
+		get_user_planning_scheme()
+
 
 	
 
