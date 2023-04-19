@@ -25,7 +25,7 @@ Summarize the solution.
 
 ## Project Details
 ### Features
-Detail the command line interface. List the planners available. Receding horizon planning scheme. Replanning.
+Detail the command line interface. List the planners available. Receding horizon planning scheme. Replanning. 
 1. 2D grid
 2. Voronoi graph
 3. Probabilistic roadmap (PRM)

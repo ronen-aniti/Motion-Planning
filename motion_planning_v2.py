@@ -47,16 +47,12 @@ class MotionPlanning(Drone):
 		self.waypoints = []
 		self.in_mission = True
 		self.check_state = {}
-		self.elevation_map, self.ned_boundaries, self.map_size, self.map_data = build_map_and_take_measurements('colliders.csv')
 
 		# Extract obstacle geometry
 		#self.obstacle_geometry = extract_obstacle_geometry(self.map_data, self.ned_boundaries)
-
-		self.destinations = read_destinations('destinations.json')
 		self.destination = {}
 		self.destination_local_position = None
-		self.planning_scheme = planning_scheme 
-		
+
 		# initial state
 		self.flight_state = States.MANUAL
 
@@ -253,8 +249,10 @@ if __name__ == "__main__":
 
 	planning_scheme = get_user_planning_scheme()
 	elevation_map = ElevationMap('colliders.csv')
+	destinations = read_destinations('destinations.json')
 	if planning_scheme == PlanningScheme.VORONOI:
-		voronoi_diagram = create_voronoi_diagram(elevation_map.map_data, elevation_map.ned_boundaries, elevation_map.map_size, destination['alt'])
+		voronoi_diagram = create_voronoi_diagram(elevation_map, destination['alt'])
+		voronoi_graph = build_connected_voronoi_graph()
 
 	conn = MavlinkConnection('tcp:127.0.0.1:5760', threaded=False, PX4=False)
 	drone = MotionPlanning(conn, planning_scheme, elevation_map)
