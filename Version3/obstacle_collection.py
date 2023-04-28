@@ -22,7 +22,7 @@ class ObstacleCollection:
 				safety = hypotenuse
 
 		# For added safety, return a safety distance equal to twice the longest obstacle
-		# hypotenuse, rather than retur a safety distance that is merely the longest
+		# hypotenuse, rather than return a safety distance that is merely the longest
 		# obstacle hypotenuse. 
 		
 		return 2*safety

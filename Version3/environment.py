@@ -1,19 +1,45 @@
 from bounds import Bounds
 from geodetic_position import GeodeticPosition
 from local_position import LocalPosition
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
+from matplotlib.patches import Circle
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import numpy as np
 from obstacle import Obstacle
 from obstacle_collection import ObstacleCollection
-
+from state import State
+import utm
 
 class Environment:
-	def __init__(self, geodetic_home: GeodeticPosition, geodetic_goal: GeodeticPosition, obstacle_collection: ObstacleCollection):
+	def __init__(self, geodetic_home: GeodeticPosition, obstacle_collection: ObstacleCollection):
 		self._geodetic_home = geodetic_home
-		self._geodetic_goal = geodetic_goal
+		#self._geodetic_goal = geodetic_goal
+		#self._goal_state = self._update_goal_state()
 		self._obstacles = obstacle_collection
 		self._north_bounds = self._determine_north_bounds() # Build and return Bounds Object from obstacle_collection
 		self._east_bounds = self._determine_east_bounds()
 		self._down_bounds = self._determine_down_bounds()
+
+	def state_collides_with_obstacle(self, state: State) -> bool:
+		if state.local_position.north < self._north_bounds.minimum:
+			return True
+		if state.local_position.north > self._north_bounds.maximum:
+			return True
+		if state.local_position.east < self._east_bounds.minimum:
+			return True
+		if state.local_position.east > self._east_bounds.maximum:
+			return True
+		indices_of_nearby_obstacles = self.obstacles.tree.query_radius([state.ground_position], self.obstacles.safety)[0]
+		obstacles_are_nearby = len(indices_of_nearby_obstacles) > 0
+		collision_is_detected = False # At first, assume no collision
+		if obstacles_are_nearby:
+			for index in indices_of_nearby_obstacles:
+				if self.obstacles.list[index].height > state.local_position.down:
+					collision_is_detected = True # Set to true when a collision is detected
+					return collision_is_detected
+		return collision_is_detected
 
 	def _determine_north_bounds(self) -> Bounds:
 		north_minimum_environment = np.inf
@@ -65,9 +91,11 @@ class Environment:
 		down_bounds = Bounds(down_minimum_environment, down_maximum_environment)
 
 		return down_bounds
-		
-	def collides(self, state_local_position: LocalPosition) -> bool:
-		pass
+
+	#def _update_goal_state(self) -> State:
+	#	goal_local_position = self._geodetic_goal.local_relative_to(self._geodetic_home)
+	#	goal_state = State(self, goal_local_position)
+	#	return goal_state
 
 	def add_obstacle(self, new_obstacle: Obstacle) -> None:
 		pass
@@ -75,6 +103,29 @@ class Environment:
 	def _update_bounds(self) -> None:
 		#Should find the bounds based on the obstacle tree or list
 		pass
+
+	def visualize(self) -> None:
+		# Generate a graph of the environment, labeled with axes, obstacle heights, and a title. 
+		fig, ax = plt.subplots()
+		ax.set_xlabel("North")
+		ax.set_ylabel("East")
+		color_map_of_plot = plt.get_cmap('coolwarm')
+		list_of_obstacle_heights = [obstacle.height for obstacle in self.obstacles.list]
+		normalization_of_obstacle_heights = Normalize(vmin=min(list_of_obstacle_heights), vmax=max(list_of_obstacle_heights))
+		scalar_mappable = ScalarMappable(norm=normalization_of_obstacle_heights, cmap=color_map_of_plot)
+		scalar_mappable.set_array([])
+		for obstacle in self.obstacles.list:
+			obstacle_color = color_map_of_plot(normalization_of_obstacle_heights(obstacle.height))
+			obstacle_as_a_circle_patch = patches.Circle((obstacle.local_position.north, obstacle.local_position.east), obstacle.safety, color=obstacle_color, alpha=0.3)
+			ax.add_patch(obstacle_as_a_circle_patch)
+			ax.text(obstacle.local_position.north, obstacle.local_position.east, f"{float(obstacle.height):.1f}", fontsize=8)
+		#ax.scatter(self.goal_state.local_position.north, self.goal_state.local_position.east, c='red', s=30, marker='x', label='Goal')
+		#ax.legend()
+		color_bar = plt.colorbar(scalar_mappable, ax=ax)
+		color_bar.set_label("Altitude (m)")
+		ax.set_xlim(self.north_bounds.minimum, self.north_bounds.maximum)
+		ax.set_ylim(self.east_bounds.minimum, self.east_bounds.maximum)
+		plt.show()
 
 	@property
 	def north_bounds(self):
@@ -96,6 +147,3 @@ class Environment:
 	def geodetic_home(self):
 		return self._geodetic_home
 
-	@property
-	def geodetic_goal(self):
-		return self._geodetic_goal

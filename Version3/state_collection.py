@@ -2,8 +2,11 @@ import numpy as np
 from sklearn.neighbors import KDTree
 
 class StateCollection:
-	def __init__(self, state_list):
-		self._list = state_list
+	def __init__(self, start_state, middle_states, goal_state):
+		self._start_state = start_state
+		self._middle_states = middle_states
+		self._goal_state = goal_state
+		self._list = [start_state] + middle_states + [goal_state]
 		self._tree = self._build_tree()
 
 	def _build_tree(self):
@@ -26,3 +29,14 @@ class StateCollection:
 	def tree(self):
 		return self._tree
 
+	@property
+	def start_state(self):
+		return self._start
+
+	@property
+	def middle_states(self):
+		return self._middle_states
+
+	@property
+	def goal_state(self):
+		return self._goal_state

@@ -1,24 +1,53 @@
 from environment import Environment
 from geodetic_position import GeodeticPosition
 from start_goal_pair import StartGoalPair
-from state_samplers import GlobalSampler
+from state import State
 from obstacle_collection import ObstacleCollection
 from obstacle_file_reader import ObstacleFileReader
-
+from state_samplers_v2 import RapidlyExploringRandomTree
 import pdb
 
+"""
+The conceptual organization of this code is like this.
+Environment 
+-Obstacles
+-Bounds
+-Home geodetic position
+-Goal geodetic position
+-Goal state
+
+
+State
+-Local position
+-Heading
+-Waypoint command
+-Associated environment
+-Ground distance to goal
+-Ground position
+-3d position
+-3d position to goal
+"""
 filename = "colliders.csv"
-reader = ObstacleFileReader(filename)
+reader = ObstacleFileReader(filename) 
 geodetic_home = reader.extract_geodetic_home()
-obstacle_array = reader.extract_obstacles_as_array()
+obstacle_array = reader.extract_obstacles_as_array() 
 obstacle_collection = ObstacleCollection(obstacle_array, geodetic_home)
-geodetic_goal = GeodeticPosition(-122.3123, 37.1231, 10) #User determines goal lon, lat, alt.
-environment = Environment(geodetic_home, geodetic_goal, obstacle_collection)
-global_start_goal_pairing = StartGoalPair(geodetic_home, geodetic_goal)
-global_sampler = GlobalSampler(global_start_goal_pairing)
-num_samples = 250
-global_state_sequence = global_sampler.determine_global_state_sequence(environment, num_samples)
-pdb.set_trace()
+geodetic_goal = GeodeticPosition(-122.396375, 37.793913, 10) #User determines goal lon, lat, alt.
+environment = Environment(geodetic_home, obstacle_collection)
+current_geodetic_position = GeodeticPosition(-122.39745, 37.79248, 0) #The geodetic position of the drone at the position update
+current_local_position = current_geodetic_position.local_relative_to(geodetic_home)
+goal_position_in_local_frame = geodetic_goal.local_relative_to(geodetic_home)
+
+#environment.visualize()
+current_state = State(environment, goal_position_in_local_frame, current_local_position)
+goal_state = State(environment, goal_position_in_local_frame, goal_position_in_local_frame)
+
+rapidly_exploring_random_tree = RapidlyExploringRandomTree(environment, current_state, goal_state)
+
+rapidly_exploring_random_tree.visualize()
+minimum_cost_state_path = rapidly_exploring_random_tree.search_for_minimum_cost_path_of_states()
+rapidly_exploring_random_tree.visualize(show_solution=True)
+#sequence_of_states_from_start_to_goal = rapidly_exploring_random_tree.determine_state_sequence(current_state, goal_state, environment)
 """
 # Driver code
 filename = "colliders.csv"
