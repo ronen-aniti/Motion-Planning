@@ -493,14 +493,17 @@ class Geodetic:
 	@property
 	def heading(self):
 		return self._heading
+
 class State:
-	def __init__(self, north, east, altitude, heading):
+	def __init__(self, north, east, altitude, heading, geo_home):
 		self._north = north
 		self._east = east
 		self._altitude= altitude
 		self._heading = heading
 		self._state = np.array([north, east, altitude, heading])
 		self._coord_3d = np.array([north, east, altitude])
+
+		self.geo_home = 
 
 
 	def __str__(self):
@@ -539,19 +542,21 @@ class State:
 		return self._coord_3d
 	
 class Position:
-	def __init__(self, position_geodetic, geodetic _home):
-		self._lon = lon
-		self._lat = lat
-		self._alt = alt
-		self._local = self._convert_to_local(global_home)
+	def __init__(self, geodetic_position, geodetic_home):
+		
+		self._geodetic = geodetic_position
+		self._local = self._convert_to_local(geodetic_home)
+
 		self._local_state = State(self._local[0], self._local[1], self._local[2], self.local[3])
 		self._north = self._local_state.north
 		self._east = self._local_state.east
-		self._heading = self._heading
+		self._heading = self._local_state.heading
 
-	def _convert_to_local(self, global_home):
+
+
+	def _convert_to_local(self, geodetic_home):
 		
-		home_east, home_north, _, _ = utm.from_latlon(global_home.lat, global_home.lon)
+		home_east, home_north, _, _ = utm.from_latlon(geodetic_home.lat, geodetic_home.lon)
 		east, north, _, _ = utm.from_latlon(self._lat, self._lon)
 		
 		north_delta = north - home_north

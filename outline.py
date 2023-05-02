@@ -21,8 +21,12 @@ Set geo goal using environment method
 """
 
 class PathPlanning(Drone):
-	pass
-
+	#upon recieving a position update:
+	#1. create a start,goal state pair object from the current and goal geo pos
+	#2. create a state sampler object with the start goal pair and the choice of algo and the desired sample size
+	#3. search the state samples with an input env to output a sequence of states 
+	#4. command the drone to fly to the first waypoint in the state sequence
+ 
 class Environment:
 	def __init__(self, filename):
 		self._filename = filename
@@ -122,19 +126,18 @@ class StartGoalPair:
 		self._start_state = start_state
 		self._goal_state = goal_state
 
-class StateSamples:
-	def __init__(self, start_goal_pair, n, algo, environment):
+class StateMaker:
+	def __init__(self, start_goal_pair, n, algo):
 		self._start_goal_pair = start_goal_pair
 		self._n = n
 		self._algo = algo
-		self._environment = environment
 
 		if algo == 'local':
-			middle_states = self._local_algo()
+			next_state = self._local_algo()
 		elif algo == 'global':
-			middle_states = self._global_algo()
+			next_state = self._global_algo()
 
-	def _local_algo():
+	def _local_algo(self, environment):
 		# Integrate cost of traveling from start to goal, and set that equal to default cost -> run sum_cost()
 		# cost = self._start_goal_pair.start_state.cost + self._start_goal_pair.goal_state.cost
 		# create an ellipsoid object between start and goal: ellipsoid = Ellipsoid(start_goal_pair, self.environment)

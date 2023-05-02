@@ -16,10 +16,14 @@ class State:
 		self._ground_position = np.array([self._local_position.north, self._local_position.east])
 		self._geodetic_position = self._local_position.convert_to_geodetic_from_local(environment.geodetic_home)
 		self._parent_state = parent_state
-
+		if self._parent_state is not None:
+			self._distance_to_parent_state = self._position_in_3d - self._parent_state.position_in_3d
+		else:
+			self._distance_to_parent_state = None
 
 	def __lt__(self, other):
 		return id(self) < id(other)
+
 
 	def _determine_distance_to_nearest_obstacle(self) -> float:
 		pass
@@ -84,3 +88,57 @@ class State:
 	@property
 	def parent_state(self):
 		return self._parent_state
+
+	@parent_state.setter
+	def parent_state(self, new_parent_state):
+		self._parent_state = new_parent_state
+
+	@property
+	def distance_to_parent_state(self):
+		return self._distance_to_parent_state
+
+class PotentialMeshState(State):
+	def __init__(self, environment: "Environment", local_position_of_goal: LocalPosition, local_position: LocalPosition, relative_start_state, relative_goal_state, heading=0):
+		super().__init__(environment, local_position_of_goal, local_position, relative_start_state, relative_goal_state)
+		self._relative_start_state = relative_start_state
+		self._relative_goal_state = relative_goal_state
+		self._distance_from_relative_start = self._determine_distance_from_relative_start()
+		self._distance_from_relative_goal = self._determine_distance_from_relative_goal()
+		self._distance_from_nearest_obstacle = self._ground_distance_to_nearest_obstacle()
+		self._attractive_potential = self._determine_attractive_potential()
+		self._repulsive_potential = self._determine_repulsive_potential()
+		self._total_potential = self._attractive_potential + self._repulsive_potential
+		self._connections_list = None
+
+	def _determine_distance_from_relative_start(self) -> float:
+		return np.linalg.norm(self._position_in_3d - self._relative_start_state.position_in_3d)
+
+	def _determine_distance_from_relative_goal(self) -> float:
+		return np.linalg.norm(self._relative_goal_state.position_in_3d - self._position_in_3d)
+
+	def _ground_distance_to_nearest_obstacle(self) -> float:
+		distances, indices = self._environment._obstacles.tree.query([self._ground_position], k=5)
+		indices = indices[0]
+		for index in indices:
+			obstacle_to_test = self._environment_obstacles.list[index]
+			if obstacle_to_test.height >= self._local_position.down:
+				distance_to_nearest_obstacle = np.linalg.norm(obstacle_to_test.ground_position - self._ground_position)
+		return 10000000 # Return a large number if none of the nearest neighbor obstacles are actually obstacles at the query state's height.
+
+
+	def _determine_repulsive_potential(self) -> float:
+		k_obstacle = 1
+		k_start = 1
+		repulsive_potential = (k_obstacle * 1 / (self._distance_from_nearest_obstacle - self._environment.obstacles.safety)**2
+							   + k_start * 1 / self._distance_from_relative_start**2)
+		return repulsive_potential
+
+
+	def _determine_attractive_potential(self):
+		k_goal = 1
+		attractive_potential = -k_goal * 1 / (self._distance_from_relative_goal)**2
+		return attractive_potential
+
+	@property
+	def total_potential(self):
+		return self._total_potential

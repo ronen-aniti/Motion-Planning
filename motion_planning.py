@@ -72,7 +72,7 @@ class MotionPlanning(Drone):
             drone_speed = np.linalg.norm(self.local_velocity)
             if self.planning_algorithm == PlanningAlgorithms.GRID2D:
                 deadband_radius = 0.25 + drone_speed
-            elif self.planning_algorithm == PlanningAlgorithms.MEDAXIS:
+            elif self.planning_algorithm == PlanningAlgorithms.MEDAXIS: 
                 deadband_radius = 4.0 + 4.0 * drone_speed
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < deadband_radius:
                 if len(self.waypoints) > 0:

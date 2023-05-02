@@ -15,14 +15,12 @@ import utm
 class Environment:
 	def __init__(self, geodetic_home: GeodeticPosition, obstacle_collection: ObstacleCollection):
 		self._geodetic_home = geodetic_home
-		#self._geodetic_goal = geodetic_goal
-		#self._goal_state = self._update_goal_state()
 		self._obstacles = obstacle_collection
 		self._north_bounds = self._determine_north_bounds() # Build and return Bounds Object from obstacle_collection
 		self._east_bounds = self._determine_east_bounds()
 		self._down_bounds = self._determine_down_bounds()
 
-	def state_collides_with_obstacle(self, state: State) -> bool:
+	def _state_is_out_of_bounds(self, state: State) -> bool:
 		if state.local_position.north < self._north_bounds.minimum:
 			return True
 		if state.local_position.north > self._north_bounds.maximum:
@@ -31,15 +29,22 @@ class Environment:
 			return True
 		if state.local_position.east > self._east_bounds.maximum:
 			return True
-		indices_of_nearby_obstacles = self.obstacles.tree.query_radius([state.ground_position], self.obstacles.safety)[0]
-		obstacles_are_nearby = len(indices_of_nearby_obstacles) > 0
-		collision_is_detected = False # At first, assume no collision
-		if obstacles_are_nearby:
-			for index in indices_of_nearby_obstacles:
-				if self.obstacles.list[index].height > state.local_position.down:
-					collision_is_detected = True # Set to true when a collision is detected
-					return collision_is_detected
-		return collision_is_detected
+
+	def state_collides_with_obstacle(self, state: State) -> bool:
+		state_is_out_of_bounds = self._state_is_out_of_bounds(state)
+		if state_is_out_of_bounds:
+			return True
+		else:
+			indices_of_nearby_obstacles = self._obstacles.tree.query_radius([state.ground_position], self.obstacles.safety)[0]
+			obstacles_are_nearby = len(indices_of_nearby_obstacles) > 0
+			collision_is_detected = False # At first, assume no collision
+			if obstacles_are_nearby:
+				for index in indices_of_nearby_obstacles:
+					if self._obstacles.list[index].height >= state.local_position.down:
+						return True
+			return False
+
+
 
 	def _determine_north_bounds(self) -> Bounds:
 		north_minimum_environment = np.inf
@@ -125,7 +130,9 @@ class Environment:
 		color_bar.set_label("Altitude (m)")
 		ax.set_xlim(self.north_bounds.minimum, self.north_bounds.maximum)
 		ax.set_ylim(self.east_bounds.minimum, self.east_bounds.maximum)
-		plt.show()
+		plt.title("The Environment")
+		plt.legend()
+		return fig, ax
 
 	@property
 	def north_bounds(self):

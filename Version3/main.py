@@ -5,6 +5,7 @@ from state import State
 from obstacle_collection import ObstacleCollection
 from obstacle_file_reader import ObstacleFileReader
 from state_samplers_v2 import RapidlyExploringRandomTree
+import time
 import pdb
 
 """
@@ -27,12 +28,15 @@ State
 -3d position
 -3d position to goal
 """
+
+#def code_that_I_want_to_time():
 filename = "colliders.csv"
 reader = ObstacleFileReader(filename) 
 geodetic_home = reader.extract_geodetic_home()
 obstacle_array = reader.extract_obstacles_as_array() 
 obstacle_collection = ObstacleCollection(obstacle_array, geodetic_home)
-geodetic_goal = GeodeticPosition(-122.396375, 37.793913, 10) #User determines goal lon, lat, alt.
+#geodetic_goal = GeodeticPosition(-122.396375, 37.793913, 10) #User determines goal lon, lat, alt.
+geodetic_goal = GeodeticPosition(-122.3994, 37.7951, 10)
 environment = Environment(geodetic_home, obstacle_collection)
 current_geodetic_position = GeodeticPosition(-122.39745, 37.79248, 0) #The geodetic position of the drone at the position update
 current_local_position = current_geodetic_position.local_relative_to(geodetic_home)
@@ -44,9 +48,25 @@ goal_state = State(environment, goal_position_in_local_frame, goal_position_in_l
 
 rapidly_exploring_random_tree = RapidlyExploringRandomTree(environment, current_state, goal_state)
 
-rapidly_exploring_random_tree.visualize()
-minimum_cost_state_path = rapidly_exploring_random_tree.search_for_minimum_cost_path_of_states()
-rapidly_exploring_random_tree.visualize(show_solution=True)
+	#return rapidly_exploring_random_tree.current_iter
+"""
+n = 100
+
+times = []
+iterations = []
+for i in range(n):
+	start_time = time.time()
+	maximum_number_of_iterations = code_that_I_want_to_time()
+	end_time = time.time()
+	times.append(end_time - start_time)
+	iterations.append(maximum_number_of_iterations)
+avg_time = sum(times) / n 
+print("Average time: ", avg_time)
+print("Iterations ", iterations)
+"""
+#rapidly_exploring_random_tree.visualize()
+#minimum_cost_state_path = rapidly_exploring_random_tree.search_for_minimum_cost_path_of_states()
+#rapidly_exploring_random_tree.visualize(show_solution=True)
 #sequence_of_states_from_start_to_goal = rapidly_exploring_random_tree.determine_state_sequence(current_state, goal_state, environment)
 """
 # Driver code
