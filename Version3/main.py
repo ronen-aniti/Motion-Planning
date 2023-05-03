@@ -1,10 +1,11 @@
 from environment import Environment
 from geodetic_position import GeodeticPosition
+import matplotlib.pyplot as plt
 from start_goal_pair import StartGoalPair
 from state import State
 from obstacle_collection import ObstacleCollection
 from obstacle_file_reader import ObstacleFileReader
-from state_samplers_v2 import RapidlyExploringRandomTree
+from state_samplers_v2 import PotentialField, RapidlyExploringRandomTree
 import time
 import pdb
 
@@ -47,6 +48,16 @@ current_state = State(environment, goal_position_in_local_frame, current_local_p
 goal_state = State(environment, goal_position_in_local_frame, goal_position_in_local_frame)
 
 rapidly_exploring_random_tree = RapidlyExploringRandomTree(environment, current_state, goal_state)
+potential_field = PotentialField(environment, current_state, goal_state)
+
+# Plot the trajectory for the potential field planner
+fig, ax = environment.visualize()
+potential_field_trajectory = [state.local_position for state in potential_field.state_sequence]
+ax.plot([p.north for p in potential_field_trajectory], [p.east for p in potential_field_trajectory], label="Potential Field Trajectory")
+
+ax.legend()
+plt.show()
+
 
 	#return rapidly_exploring_random_tree.current_iter
 """

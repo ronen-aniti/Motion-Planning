@@ -31,7 +31,7 @@ class StateCollection:
 
 	@property
 	def start_state(self):
-		return self._start
+		return self._start_state
 
 	@property
 	def middle_states(self):

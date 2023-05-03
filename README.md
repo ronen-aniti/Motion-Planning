@@ -23,6 +23,9 @@ Summarize the problem.
 ### The Solution
 Summarize the solution. 
 
+### Sample Math Expression
+$x^2 + y^2 = r^2$
+
 ## Project Details
 ### Features
 Detail the command line interface. List the planners available. Receding horizon planning scheme. Replanning. 
