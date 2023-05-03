@@ -24,7 +24,7 @@ Summarize the problem.
 Summarize the solution. 
 
 ### Sample Math Expression
-$x^2 + y^2 = r^2$
+$F = -\nabla U$
 
 ## Project Details
 ### Features
