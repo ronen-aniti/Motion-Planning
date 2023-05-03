@@ -30,19 +30,10 @@ class Environment:
 	def generate_n_obstacles(self, number_of_obstacles) -> List[Obstacle]:
 		HALFSIZE = 5
 		SAFETY_RADIUS = HALFSIZE * np.sqrt(2)
-
-		obstacle_list = []
-		obstacle_xy_positions = []
-		for i in range(number_of_obstacles):
-			x_position = np.random.uniform(low=self.x_bounds.minimum, high=self.x_bounds.maximum)
-			y_position = np.random.uniform(low=self.y_bounds.minimum, high=self.y_bounds.maximum)
-			
-			xy_position = np.array([x_position, y_position])
-			obstacle_xy_positions.append(xy_position)
-
-			obstacle_object = Obstacle(xy_position, SAFETY_RADIUS)
-			obstacle_list.append(obstacle_object)
-
+		x_positions = np.random.uniform(low=self.x_bounds.minimum, high=self.x_bounds.maximum, size=number_of_obstacles)
+		y_positions = np.random.uniform(low=self.y_bounds.minimum, high=self.y_bounds.maximum, size=number_of_obstacles)
+		obstacle_xy_positions = np.vstack((x_positions, y_positions)).T 
+		obstacle_list = [Obstacle(xy_position, SAFETY_RADIUS) for xy_position in obstacle_xy_positions]
 		return obstacle_list
 
 	def determine_obstacle_xy_positions(self) -> np.ndarray:
@@ -190,7 +181,7 @@ start_position = np.array([np.random.uniform(low=x_bounds.minimum, high=x_bounds
 goal_position = np.array([np.random.uniform(low=x_bounds.minimum, high=x_bounds.maximum), np.random.uniform(low=y_bounds.minimum, high=y_bounds.maximum)])
 current_position = np.array([np.random.uniform(low=x_bounds.minimum, high=x_bounds.maximum), np.random.uniform(low=y_bounds.minimum, high=y_bounds.maximum)])
 environment = Environment(x_bounds, y_bounds, number_of_obstacles, start_position, goal_position, current_position)
-resolution = 1
+resolution = 10
 potential_field = PotentialField(environment, resolution)
 print("Done calculating")
 fig, ax = plt.subplots()
@@ -213,7 +204,7 @@ ax.scatter(environment.current_position[0], environment.current_position[1], col
 ax.set_xlim(x_bounds.minimum, x_bounds.maximum)
 ax.set_ylim(y_bounds.minimum, y_bounds.maximum)
 ax.set_title("Environment Represented Using an Artificial Force Field")
-step_size = 0.1
+step_size = 1
 trajectory_points = potential_field.draw_trajectory_from(current_position, step_size)
 ax.plot(np.array(trajectory_points)[:,0], np.array(trajectory_points)[:,1], color=(0.5, 0, 0.5), label="Trajectory")
 ax.legend()
