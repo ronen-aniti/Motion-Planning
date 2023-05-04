@@ -53,8 +53,10 @@ class RapidlyExploringRandomTree(Planner):
 		self._goal_state = goal_state
 		self._middle_states = []
 		self._tree_altitude = goal_state.local_position.down 
+		self._resolution_of_collision_detector = self._determine_resolution_of_collision_detector()
 		self._takeoff_state = self._determine_takeoff_state(self._tree_altitude)
-		self._state_sequence = self._build_tree_at_constant_altitude()
+		self._tree_states_as_list = self._determine_tree_states_as_list()
+		self._state_sequence = self._shorten_the_tree()
 
 	
 	def _determine_takeoff_state(self, target_altitude):
@@ -74,7 +76,7 @@ class RapidlyExploringRandomTree(Planner):
 		return maximum_number_of_iterations
 
 	def _take_a_random_sample_state(self, target_altitude, current_iteration) -> State:
-		if current_iteration % 2 == 0 or current_iteration % 5 == 0:
+		if current_iteration % 2 == 0 or current_iteration % 5 == 0: # Bias the sampler in favor of the goal state
 			north = np.random.uniform(low=self._environment.north_bounds.minimum, high=self._environment.north_bounds.maximum)
 			east = np.random.uniform(low=self._environment.east_bounds.minimum, high=self._environment.east_bounds.maximum)
 		else:
@@ -104,13 +106,12 @@ class RapidlyExploringRandomTree(Planner):
 	def _plot_solution(self):
 		pass
 
-	def _build_tree_at_constant_altitude(self) -> StateCollection:	
+	def _determine_tree_states_as_list(self) -> List[State]:	
 
 		# Establish the values of some key parameters.
 		goal_is_found = False
 		maximum_number_of_iterations = self._determine_maximum_number_of_iterations()
 		step_size_of_tree = self._determine_step_size_of_tree()
-		resolution_of_collision_detector = self._determine_resolution_of_collision_detector()
 		tree_states_as_list = [self._start_state, self._takeoff_state]
 		current_state = self._takeoff_state
 
@@ -124,7 +125,7 @@ class RapidlyExploringRandomTree(Planner):
 				the_vector_from_neighbor_to_random_sample = the_random_sample_state.position_in_3d - the_nearest_neighbor_state.position_in_3d
 				length_of_the_vector_in_meters = np.linalg.norm(the_vector_from_neighbor_to_random_sample) 
 				the_unit_vector = the_vector_from_neighbor_to_random_sample / length_of_the_vector_in_meters
-				for current_distance_traversed in np.arange(resolution_of_collision_detector, step_size_of_tree, resolution_of_collision_detector):
+				for current_distance_traversed in np.arange(self._resolution_of_collision_detector, step_size_of_tree, self._resolution_of_collision_detector):
 					local_position_of_test_state_along_vector_step = the_nearest_neighbor_state.position_in_3d + current_distance_traversed * the_unit_vector
 					local_position_of_test_state_along_vector_step = LocalPosition(
 						local_position_of_test_state_along_vector_step[0], 
@@ -150,7 +151,7 @@ class RapidlyExploringRandomTree(Planner):
 		vector_mag = np.linalg.norm(vector)
 		unit_vector = vector / vector_mag
 		possible_to_connect_to_goal = True
-		for current_distance_traversed in np.arange(resolution_of_collision_detector, vector_mag, resolution_of_collision_detector):
+		for current_distance_traversed in np.arange(self._resolution_of_collision_detector, vector_mag, self._resolution_of_collision_detector):
 			local_position_of_test_state_along_vector = final_state_before_goal.position_in_3d + current_distance_traversed * unit_vector
 			local_position_of_test_state_along_vector = LocalPosition(
 				local_position_of_test_state_along_vector[0],
@@ -165,7 +166,10 @@ class RapidlyExploringRandomTree(Planner):
 		if possible_to_connect_to_goal:
 			self._goal_state.parent_state = final_state_before_goal
 			tree_states_as_list.append(self._goal_state)
-			
+		
+		return tree_states_as_list
+
+	def _shorten_the_tree(self) -> StateCollection:
 
 		#iteratively test parent states to cut down on cost
 		#Try to rewire the tree if goal is found
@@ -174,13 +178,15 @@ class RapidlyExploringRandomTree(Planner):
 		fig, ax = self._environment.visualize()
 
 		# Plot the states that the RRT algorithm explored
-		for state in tree_states_as_list[2:]:
+		for state in self._tree_states_as_list[2:]:
 			plt.arrow(state.parent_state.local_position.north, state.parent_state.local_position.east,
 				state.local_position.north - state.parent_state.local_position.north,
 				state.local_position.east - state.parent_state.local_position.east,
 				head_width=4, head_length=4, color='black', length_includes_head=True)
 		
+
 		# An algorithm to shorten the path
+		final_state_before_goal = self._tree_states_as_list[-2]
 		for i in range(25): #Experiment with the number of times to shorten the path
 			start = final_state_before_goal
 			while start.parent_state is not None:
@@ -189,7 +195,7 @@ class RapidlyExploringRandomTree(Planner):
 					vector = subgoal.position_in_3d - start.position_in_3d
 					vector_mag = np.linalg.norm(vector)
 					unit_vector = vector / vector_mag
-					for step in np.arange(resolution_of_collision_detector, vector_mag, resolution_of_collision_detector):
+					for step in np.arange(self._resolution_of_collision_detector, vector_mag, self._resolution_of_collision_detector):
 						local_position = start.position_in_3d + step * unit_vector
 						local_position = LocalPosition(local_position[0], local_position[1], local_position[2])
 						state = State(self._environment, self._goal_state.local_position, local_position)
@@ -295,9 +301,6 @@ class PotentialField(Planner):
 		self._environment = environment
 		self._start_state = start_state
 		self._goal_state = goal_state
-		#self._north_bounds = self._determine_north_bounds()
-		#self._east_bounds = self._determine_east_bounds()
-		#self._down_bounds = self._determine_down_bounds()
 		self._resolution = 1 # meter cubed
 		self._step_size = 0.1 # meter
 		self._state_sequence = self._determine_path()
@@ -308,7 +311,7 @@ class PotentialField(Planner):
 		# Gains
 		ks = 0
 		ko = 10
-		kg = 1000
+		kg = 10000
 
 		current_position = current_state.ground_position
 		# Determine the position of the nearest obstacle
@@ -334,8 +337,12 @@ class PotentialField(Planner):
 
 		vector_from_obstacle_to_current = current_position - obstacle_position
 		distance_from_obstacle_to_current = np.linalg.norm(vector_from_obstacle_to_current)
-		unit_vector_from_obstacle_to_current = vector_from_obstacle_to_current / distance_from_obstacle_to_current
-		force_obstacle_to_current = ko / distance_from_obstacle_to_current**2 * unit_vector_from_obstacle_to_current
+		if distance_from_obstacle_to_current <= self._environment.obstacles.safety:
+			unit_vector_from_obstacle_to_current = vector_from_obstacle_to_current / distance_from_obstacle_to_current
+			force_obstacle_to_current = np.linalg.norm(force_current_to_goal) * unit_vector_from_obstacle_to_current # This line results in a strengthening of the obstacle field in the vacinity of the goal, reducing the chance of collisions with obstacles near the goal state.
+		else:
+			unit_vector_from_obstacle_to_current = vector_from_obstacle_to_current / distance_from_obstacle_to_current
+			force_obstacle_to_current = ko / (distance_from_obstacle_to_current)**2 * unit_vector_from_obstacle_to_current
 
 		force_resultant_at_current = force_start_to_current + force_obstacle_to_current + force_current_to_goal
 		force_mag_at_current = np.linalg.norm(force_resultant_at_current)
