@@ -15,10 +15,10 @@ The planning features are these.
 1. RRT. How it works, generally. How I implemented it in code. Graph of trajectory. 
 2. PRM. How it works, generally. How I implemented it in code. Graph of trajectory. 
 3. Potential field. How it works, generally, including the governing equation. How I implemented it in code. Graph of trajectory. 
-$$ 
-\vec{F}= -\nabla{U}(x,y,z) \\
-d_o=f_1(x,y,z), d_g=f_2(x,y,z)\\
-U_{r}=\frac{k_o}{d{_o}^{2}}, U_{a}=\frac{k_g}{d{_g}^{2}}\\
+$$
+\vec{F} = -\nabla{U}(x,y,z) \\
+d_o = f_1(x,y,z), d_g=f_2(x,y,z) \\
+U_{r} = \frac{k_o}{d{_o}^{2}}, U_{a}=\frac{k_g}{d{_g}^{2}} \\
 \vec{F} = -\nabla{(\frac{k_o}{d{_o}^{2}} + \frac{k_g}{d{_g}^{2}})}
 $$
 4. 2d Grid. How it works, generally. How I implemented it in code. Graph of trajectory. 
