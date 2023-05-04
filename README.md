@@ -23,9 +23,6 @@ Summarize the problem.
 ### The Solution
 Summarize the solution. 
 
-### Sample Math Expression
-$F = -\nabla U$
-
 ## Project Details
 ### Features
 Detail the command line interface. List the planners available. Receding horizon planning scheme. Replanning. 
