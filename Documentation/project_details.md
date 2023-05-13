@@ -3,7 +3,9 @@ Tagline. Ronen Aniti. Photo. Title. Tagline: Hire me for _____.
 ### What this page is about
 1. Provide evidence of my skills and abilities qualifying me for the position of _________. 2. Document the project __________, which is the second project that I document, the first of which is ______, and the projects
 I will be working on in the future are ____, ____, and _____. 
-![Alt Text](Documentation/Figure_1.jpg){: width="200" height="200"}
+
+![Alt Text](Figure_1.jpg){: width="200" height="200"}
+
 ### Who am I?
 I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
 Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
