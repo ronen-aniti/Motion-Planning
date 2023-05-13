@@ -1,21 +1,14 @@
-# Tagline. Ronen Aniti. 
+# Ronen Aniti. Path Planning Project.
+Tagline. Ronen Aniti. 
 Photo. Title. Tagline: Hire me for _____.
+
+## Who I am
+I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
+Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
 
 # What this page is about
 1. Provide evidence of my skills and abilities qualifying me for the position of _________. 2. Document the project __________, which is the second project that I document, the first of which is ______, and the projects
 I will be working on in the future are ____, ____, and _____. 
-
-<div class="gallery">
-    <img src="Figure_1.png" alt="Image 1">
-    <img src="Figure_1.png" alt="Image 2">
-    <img src="Figure_1.png" alt="Image 3">
-</div>
-
-<img src="Figure_1.png" alt="Alt Text" width="500" height="500">
-
-## Who am I?
-I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
-Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
 
 ## What is this project really about? 
 This project is really about this. Fact 1. Fact 2. Fact 3.
@@ -35,7 +28,7 @@ Concept or skill 1. Concept or skill 2. Concept or skill 3.
 3. Replanning. Summary of that means. 
 
 ## How do those features work?
-The global planners are these, and they work like this.
+### The global planners are these, and they work like this.
 1. RRT. How it works, generally. How I implemented it in code. Graph of trajectory. 
 2. PRM. How it works, generally. How I implemented it in code. Graph of trajectory. 
 3. Potential field. How it works, generally, including the governing equation. How I implemented it in code. Graph of trajectory. 
@@ -43,14 +36,17 @@ The global planners are these, and they work like this.
 ![Alt Text](CodeCogsEqn.png)
 
 4. 2d Grid. How it works, generally. How I implemented it in code. Graph of trajectory. 
+
+<img src="Figure_1.png" alt="Alt Text" width="500" height="500">
+
 5. Voxel map. How it works generally. How I implemented it in code. Graph of trajectory. 
 6. Voronoi graph. How it works, generally. How I implemented it in code. Graph of trajectory. 
 7. Medial axis map. How it works, generally. How I implemented it in code. Graph of trajectory.
 8. 2d graph. How it works, generally. How I implemented it in code. Graph or trajectory. 
 
-The receding horizon planner definition. How it works, generally. How I implemented it in code. Graph of trajectory. 
+### The receding horizon planner definition. How it works, generally. How I implemented it in code. Graph of trajectory. 
 
-The definition of replanning. How it works, generally. How I implemented it in code. Graph of trajectory. 
+### The definition of replanning. How it works, generally. How I implemented it in code. Graph of trajectory. 
 
 ## What challenges did I face, and how did I solve them? 
 1. Challenge 1. Solution 1. 
