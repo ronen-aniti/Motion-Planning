@@ -4,6 +4,12 @@ Tagline. Ronen Aniti. Photo. Title. Tagline: Hire me for _____.
 1. Provide evidence of my skills and abilities qualifying me for the position of _________. 2. Document the project __________, which is the second project that I document, the first of which is ______, and the projects
 I will be working on in the future are ____, ____, and _____. 
 
+<div class="gallery">
+    <img src="Figure_1.png" alt="Image 1">
+    <img src="Figure_1.png" alt="Image 2">
+    <img src="Figure_1.png" alt="Image 3">
+</div>
+
 <img src="Figure_1.png" alt="Alt Text" width="500" height="500">
 
 ### Who am I?
