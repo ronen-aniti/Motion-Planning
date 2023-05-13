@@ -4,13 +4,17 @@ Photo. Title. Tagline: Hire me for _____.
 
 <img src="portrait.jpg" alt="Alt Text" width="400" height="400">
 
-## Who I am
+# Who am I, and what is this page about?
+
+## Who am I
 I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
 Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
 
-# What this page is about
+## What is this page about?
 1. Provide evidence of my skills and abilities qualifying me for the position of _________. 2. Document the project __________, which is the second project that I document, the first of which is ______, and the projects
 I will be working on in the future are ____, ____, and _____. 
+
+# The motion planning project: an overview
 
 ## What is this project really about? 
 This project is really about this. Fact 1. Fact 2. Fact 3.
@@ -20,7 +24,6 @@ The project matters for several reasons. Reason 1. Reason 2.
 
 ## What concepts did I learn about, and what skills did I gain in the process?
 Concept or skill 1. Concept or skill 2. Concept or skill 3. 
-
 
 # Project Details
 
@@ -32,6 +35,7 @@ Answer.
 
 ## How do those features work?
 Answer.
+
 ### The global path planners
 The global planners are these, and they work like this.
 1. RRT. How it works, generally. How I implemented it in code. Graph of trajectory. 
@@ -85,6 +89,7 @@ this information to set the default planner. But also make a statement about the
 5. Figure out if we could work together. 
 
 # Links to other projects
+These are links to the other projects in that comprise my portfolio.
 1. Tutoring
 2. Path planning
 3. Control systems
