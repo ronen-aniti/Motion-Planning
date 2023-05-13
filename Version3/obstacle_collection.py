@@ -12,6 +12,24 @@ class ObstacleCollection:
 		self._list = self._build_list(obstacle_array)
 		self._tree = self._build_tree()
 		self._safety = self._determine_safety()
+		self._north_offset = self._determine_north_offset()
+		self._east_offset = self._determine_east_offset()
+
+	def _determine_east_offset(self) -> float:
+		"""Determine the minimum obstacle center for east"""
+		east_minimum = np.inf
+		for obstacle in self._list:
+			if obstacle.east_min < east_minimum:
+				east_minimum = obstacle.east_min
+		return east_minimum
+
+	def _determine_north_offset(self) -> float:
+		"""Determine the minimum obstacle center for north"""
+		north_minimum = np.inf
+		for obstacle in self._list:
+			if obstacle.north_min < north_minimum:
+				north_minimum = obstacle.north_min
+		return north_minimum
 
 	def _determine_safety(self) -> float:
 		"""Determine the largest hypot of obstacles in the list of obstacles"""
@@ -64,3 +82,11 @@ class ObstacleCollection:
 	@property
 	def safety(self):
 		return self._safety
+
+	@property
+	def north_offset(self):
+		return self._north_offset
+
+	@property
+	def east_offset(self):
+		return self._east_offset

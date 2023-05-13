@@ -12,6 +12,10 @@ class Obstacle:
 		self.position_array = np.array([local_position.north, local_position.east, local_position.down])
 		self.halfsize_array = np.array([halfsize.north, halfsize.east, halfsize.down])
 		self._ground_position_array = np.array([local_position.north, local_position.east])
+		self._north_min = self.position_array[0] - self.halfsize_array[0]
+		self._north_max = self.position_array[0] + self.halfsize_array[0]
+		self._east_min = self.position_array[1] - self.halfsize_array[1]
+		self._east_max = self.position_array[1] + self.halfsize_array[1]
 
 	def _determine_safety(self) -> float:
 		safety = np.hypot(self._halfsize.north, self._halfsize.east)
@@ -36,3 +40,19 @@ class Obstacle:
 	@property
 	def ground_position(self):
 		return self._ground_position_array
+
+	@property
+	def north_min(self):
+		return self._north_min
+	
+	@property
+	def north_max(self):
+		return self._north_max
+
+	@property
+	def east_min(self):
+		return self._east_min
+
+	@property
+	def east_max(self):
+		return self._east_max

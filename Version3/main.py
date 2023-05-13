@@ -1,13 +1,18 @@
 from environment import Environment
 from geodetic_position import GeodeticPosition
+from graph import Graph
+from grid import Grid
 import matplotlib.pyplot as plt
+from prm import ProbabilisticRoadmap
 from start_goal_pair import StartGoalPair
 from state import State
 from obstacle_collection import ObstacleCollection
 from obstacle_file_reader import ObstacleFileReader
-from state_samplers_v2 import PotentialField, RapidlyExploringRandomTree
+from rrt import RapidlyExploringRandomTree
+from potential_field import PotentialField
 import time
 import pdb
+
 
 """
 The conceptual organization of this code is like this.
@@ -30,6 +35,13 @@ State
 -3d position to goal
 """
 
+# Record a list of geodetic coordinates
+# Run the global planner to the first destination
+# Update the local planner every so often or every time an obstacle is detected
+# Add an obstacle and demonstrate the local planners ability to navigate around it
+# When the destination is reached, start repeat this process with the new destination.
+# When the battery is low, estimate the meters required to get home. If there's enough range, then go home. If not, then continue to next waypoint until range is very low, then land. 
+
 #def code_that_I_want_to_time():
 filename = "colliders.csv"
 reader = ObstacleFileReader(filename) 
@@ -43,20 +55,47 @@ current_geodetic_position = GeodeticPosition(-122.39745, 37.79248, 0) #The geode
 current_local_position = current_geodetic_position.local_relative_to(geodetic_home)
 goal_position_in_local_frame = geodetic_goal.local_relative_to(geodetic_home)
 
-#environment.visualize()
 current_state = State(environment, goal_position_in_local_frame, current_local_position)
 goal_state = State(environment, goal_position_in_local_frame, goal_position_in_local_frame)
 
+"""
+pdb.set_trace()
+# Generate a rapidly-exploring random tree (RRT)
 rapidly_exploring_random_tree = RapidlyExploringRandomTree(environment, current_state, goal_state)
+waypoints = rapidly_exploring_random_tree.run() 
+rapidly_exploring_random_tree.visualize(plot_entire_state_space=True)
+
+# Generate a potential field (actually, a gradient field) trajectory
 potential_field = PotentialField(environment, current_state, goal_state)
+waypoints = potential_field.return_waypoints()
+potential_field.visualize(plot_with_gradient_field=True, plot_original_trajectory=True, plot_shortened_path=True)
 
+# Generate a probabilistic roadmap (a graph)
+# TODO: Write a path shortening algorithm for the PRM planner
+prm = ProbabilisticRoadmap(environment, current_state, goal_state)
+waypoints = prm.determine_waypoints()
+prm.visualize(plot_entire_state_space=True)
+
+
+# Generate a 2d graph representation
+graph = Graph(environment, current_state, goal_state)
+waypoints = graph.search()
+print(waypoints)
+graph.visualize(plot_entire_state_space=True)
+
+"""
+# Generate a 2d grid representation
+grid = Grid(environment, current_state, goal_state)
+grid.search()
+grid.visualize()
+ 
 # Plot the trajectory for the potential field planner
-fig, ax = environment.visualize()
-potential_field_trajectory = [state.local_position for state in potential_field.state_sequence]
-ax.plot([p.north for p in potential_field_trajectory], [p.east for p in potential_field_trajectory], label="Potential Field Trajectory")
+#fig, ax = environment.visualize()
+#potential_field_trajectory = [state.local_position for state in potential_field.state_sequence]
+#ax.plot([p.north for p in potential_field_trajectory], [p.east for p in potential_field_trajectory], label="Potential Field Trajectory")
 
-ax.legend()
-plt.show()
+#ax.legend()
+#plt.show()
 
 
 	#return rapidly_exploring_random_tree.current_iter

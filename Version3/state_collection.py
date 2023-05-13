@@ -41,9 +41,4 @@ class StateCollection:
 	def goal_state(self):
 		return self._goal_state
 
-class PotentialStateCollection(StateCollection):
-	def __init__(self):
-		super().__init__(start_state, goal_state, middle_states)
-		pass
-
 

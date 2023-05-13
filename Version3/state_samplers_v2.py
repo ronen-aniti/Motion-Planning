@@ -55,9 +55,11 @@ class RapidlyExploringRandomTree(Planner):
 		self._tree_altitude = goal_state.local_position.down 
 		self._resolution_of_collision_detector = self._determine_resolution_of_collision_detector()
 		self._takeoff_state = self._determine_takeoff_state(self._tree_altitude)
-		self._tree_states_as_list = self._determine_tree_states_as_list()
-		self._state_sequence = self._shorten_the_tree()
-
+		self._search_space = self._build_tree_towards_goal()
+		self._connect_goal_state_to_tree()
+		self._shorten_the_tree()
+		self._state_sequence, self._cost = self._determine_state_sequence()
+		
 	
 	def _determine_takeoff_state(self, target_altitude):
 		local_position_of_takeoff_state = LocalPosition(self._start_state.local_position.north, self._start_state.local_position.east, target_altitude)
@@ -84,79 +86,80 @@ class RapidlyExploringRandomTree(Planner):
 			east = self._goal_state.local_position.east
 		down = target_altitude
 		local_position_of_random_sample = LocalPosition(north, east, down)
-		the_random_sample_state = State(self._environment, self._goal_state.local_position, local_position_of_random_sample)
+		random_sample_state = State(self._environment, self._goal_state.local_position, local_position_of_random_sample)
 
-		return the_random_sample_state
+		return random_sample_state
 
-	def _return_the_nearest_neighbor_state(self, tree_states_as_list, the_random_sample_state) -> State:
-		distance = np.inf
-		the_nearest_neighbor_state = None
-		for index, state in enumerate(tree_states_as_list):
-			test_distance = np.linalg.norm(state.position_in_3d - the_random_sample_state.position_in_3d)
-			if test_distance < distance:
-				distance = test_distance
-				the_nearest_neighbor_state = tree_states_as_list[index]
+	def _return_the_nearest_neighbor_state(self, tree_states_as_list, random_sample_state) -> State:
 
-		return the_nearest_neighbor_state
+		tree_positions = np.array([state.position_in_3d for state in tree_states_as_list])
+		random_sample_position = random_sample_state.position_in_3d
+
+		# Calculate the distances using NumPy's vectorized operations
+		distances = np.linalg.norm(tree_positions - random_sample_position, axis=1)
+		
+		# Find the index of the minimum distance
+		nearest_neighbor_index = np.argmin(distances)
+
+		# Get the nearest neighbor state from the list
+		nearest_neighbor_state = tree_states_as_list[nearest_neighbor_index]
+
+		return nearest_neighbor_state
 
 	def _determine_resolution_of_collision_detector(self) -> float:
 		resolution_of_collision_detector = self._environment.obstacles.safety # meters
 		return resolution_of_collision_detector
 
-	def _plot_solution(self):
-		pass
-
-	def _determine_tree_states_as_list(self) -> List[State]:	
-
-		# Establish the values of some key parameters.
+	def _build_tree_towards_goal(self) -> List[State]:
 		goal_is_found = False
 		maximum_number_of_iterations = self._determine_maximum_number_of_iterations()
 		step_size_of_tree = self._determine_step_size_of_tree()
 		tree_states_as_list = [self._start_state, self._takeoff_state]
 		current_state = self._takeoff_state
 
-		# Develop a collection of states that are connected in a tree structure, and store references to each state of the tree in a list. 
 		while not goal_is_found:
-			print("Attempting")
-			current_iteration = 0
-			while current_iteration < maximum_number_of_iterations and current_state.distance_to_goal > step_size_of_tree:
-				the_random_sample_state = self._take_a_random_sample_state(self._takeoff_state.local_position.down, current_iteration)
-				the_nearest_neighbor_state = self._return_the_nearest_neighbor_state(tree_states_as_list, the_random_sample_state)
-				the_vector_from_neighbor_to_random_sample = the_random_sample_state.position_in_3d - the_nearest_neighbor_state.position_in_3d
-				length_of_the_vector_in_meters = np.linalg.norm(the_vector_from_neighbor_to_random_sample) 
-				the_unit_vector = the_vector_from_neighbor_to_random_sample / length_of_the_vector_in_meters
-				for current_distance_traversed in np.arange(self._resolution_of_collision_detector, step_size_of_tree, self._resolution_of_collision_detector):
-					local_position_of_test_state_along_vector_step = the_nearest_neighbor_state.position_in_3d + current_distance_traversed * the_unit_vector
-					local_position_of_test_state_along_vector_step = LocalPosition(
-						local_position_of_test_state_along_vector_step[0], 
-						local_position_of_test_state_along_vector_step[1], 
-						local_position_of_test_state_along_vector_step[2])
-					state_to_test = State(self._environment, self._goal_state.local_position, local_position_of_test_state_along_vector_step, parent_state=the_nearest_neighbor_state)
-					test_state_is_in_collision = self._environment.state_collides_with_obstacle(state_to_test)
-					if test_state_is_in_collision:
-						break
-					if state_to_test.distance_to_goal <= step_size_of_tree:
-						goal_is_found = True
-						print('path is found')
-						current_state = state_to_test
-						break
-					current_state = state_to_test
-				tree_states_as_list.append(current_state)
-				current_iteration += 1
-		final_state_before_goal = current_state
+					print("Attempting")
+					current_iteration = 0
+					while current_iteration < maximum_number_of_iterations and current_state.distance_to_goal > step_size_of_tree:
+						random_sample_state = self._take_a_random_sample_state(self._takeoff_state.local_position.down, current_iteration)
+						nearest_neighbor_state = self._return_the_nearest_neighbor_state(tree_states_as_list, random_sample_state)
+						vector_from_neighbor_to_random_sample = random_sample_state.position_in_3d - nearest_neighbor_state.position_in_3d
+						length_of_the_vector_in_meters = np.linalg.norm(vector_from_neighbor_to_random_sample) 
+						unit_vector = vector_from_neighbor_to_random_sample / length_of_the_vector_in_meters
+						for distance_traversed in np.arange(self._resolution_of_collision_detector, step_size_of_tree, self._resolution_of_collision_detector):
+							local_position_of_test_state_along_vector_step = nearest_neighbor_state.position_in_3d + distance_traversed * unit_vector
+							local_position_of_test_state_along_vector_step = LocalPosition(*local_position_of_test_state_along_vector_step)
+							state_to_test = State(self._environment, self._goal_state.local_position, local_position_of_test_state_along_vector_step, parent_state=nearest_neighbor_state)
+							
+							if self._environment.state_collides_with_obstacle(state_to_test):
+								break
 
-		# Add the goal state to the state sequence if there's no collision between the goal state and the second to last
-		# state. 
-		vector = self._goal_state.position_in_3d - final_state_before_goal.position_in_3d
-		vector_mag = np.linalg.norm(vector)
-		unit_vector = vector / vector_mag
+							if state_to_test.distance_to_goal <= step_size_of_tree:
+								goal_is_found = True
+								print('path is found')
+								current_state = state_to_test
+								break
+
+							current_state = state_to_test
+
+						tree_states_as_list.append(current_state)
+						current_iteration += 1
+
+				
+
+		return tree_states_as_list
+
+	def _connect_goal_state_to_tree(self) -> List[State]:
+		# This code block will add the goal state to the list of states if it can be connected to the final state before the goal state in a straight line without colliding
+		# with obstacles. 
+		final_state_before_goal = self._search_space[-1]
+		vector_from_end_of_tree_to_goal_state = self._goal_state.position_in_3d - final_state_before_goal.position_in_3d
+		vector_mag = np.linalg.norm(vector_from_end_of_tree_to_goal_state)
+		unit_vector = vector_from_end_of_tree_to_goal_state / vector_mag
 		possible_to_connect_to_goal = True
 		for current_distance_traversed in np.arange(self._resolution_of_collision_detector, vector_mag, self._resolution_of_collision_detector):
 			local_position_of_test_state_along_vector = final_state_before_goal.position_in_3d + current_distance_traversed * unit_vector
-			local_position_of_test_state_along_vector = LocalPosition(
-				local_position_of_test_state_along_vector[0],
-				local_position_of_test_state_along_vector[1],
-				local_position_of_test_state_along_vector[2])
+			local_position_of_test_state_along_vector = LocalPosition(*local_position_of_test_state_along_vector)
 			state_to_test = State(self._environment, self._goal_state.local_position, local_position_of_test_state_along_vector, parent_state=final_state_before_goal)
 			test_state_is_in_collision = self._environment.state_collides_with_obstacle(state_to_test)
 			if test_state_is_in_collision:
@@ -165,28 +168,17 @@ class RapidlyExploringRandomTree(Planner):
 				break
 		if possible_to_connect_to_goal:
 			self._goal_state.parent_state = final_state_before_goal
-			tree_states_as_list.append(self._goal_state)
+			self._search_space.append(self._goal_state)
+		else:
+			print("It's not possible to connect the goal state to the random tree.")
+
 		
-		return tree_states_as_list
 
-	def _shorten_the_tree(self) -> StateCollection:
-
+	def _shorten_the_tree(self) -> None:
 		#iteratively test parent states to cut down on cost
 		#Try to rewire the tree if goal is found
-
-		# Plot the base environment
-		fig, ax = self._environment.visualize()
-
-		# Plot the states that the RRT algorithm explored
-		for state in self._tree_states_as_list[2:]:
-			plt.arrow(state.parent_state.local_position.north, state.parent_state.local_position.east,
-				state.local_position.north - state.parent_state.local_position.north,
-				state.local_position.east - state.parent_state.local_position.east,
-				head_width=4, head_length=4, color='black', length_includes_head=True)
-		
-
 		# An algorithm to shorten the path
-		final_state_before_goal = self._tree_states_as_list[-2]
+		final_state_before_goal = self._search_space[-2]
 		for i in range(25): #Experiment with the number of times to shorten the path
 			start = final_state_before_goal
 			while start.parent_state is not None:
@@ -197,7 +189,7 @@ class RapidlyExploringRandomTree(Planner):
 					unit_vector = vector / vector_mag
 					for step in np.arange(self._resolution_of_collision_detector, vector_mag, self._resolution_of_collision_detector):
 						local_position = start.position_in_3d + step * unit_vector
-						local_position = LocalPosition(local_position[0], local_position[1], local_position[2])
+						local_position = LocalPosition(*local_position)
 						state = State(self._environment, self._goal_state.local_position, local_position)
 						collides = self._environment.state_collides_with_obstacle(state)
 						if collides:
@@ -211,22 +203,37 @@ class RapidlyExploringRandomTree(Planner):
 				else:
 					break
 
+	def _determine_state_sequence(self) -> StateCollection:
 		# A loop to generate an list of states that is now the global plan.
 		state_sequence = []
+		partial_costs = []
 		goal_state = self._goal_state
 		current_state = self._goal_state
 		while current_state.parent_state != None:
 			state_sequence.append(current_state)
+			partial_costs.append(np.linalg.norm(current_state.position_in_3d - current_state.parent_state.position_in_3d))
 			current_state = current_state.parent_state
 		state_sequence = state_sequence[::-1]
 		state_sequence = StateCollection(self._start_state, self._goal_state, state_sequence)
+		cost = sum(partial_costs)
+		print("The cost is", cost)
+		return state_sequence, cost
 
-
+	def visualize(self, plot_entire_search_space=False):
+		# Plot the base environment
+		fig, ax = self._environment.visualize()
+		if plot_entire_search_space:
+			# Plot the states that the RRT algorithm explored
+			for state in self._search_space[2:]:
+				plt.arrow(state.parent_state.local_position.north, state.parent_state.local_position.east,
+					state.local_position.north - state.parent_state.local_position.north,
+					state.local_position.east - state.parent_state.local_position.east,
+					head_width=4, head_length=4, color='black', length_includes_head=True)
 
 		# Visualize the plan.		
 		plt.text(self._takeoff_state.local_position.north, self._takeoff_state.local_position.east, f"{self._takeoff_state.local_position.down: 0.1f}", fontsize=12)
 		# Plot the global plan state sequence
-		for state in state_sequence.list[1:-1]:
+		for state in self._state_sequence.list[1:-1]:
 			plt.text(state.local_position.north, state.local_position.east, f"{state.local_position.down: 0.1f}", fontsize=12)
 			plt.arrow(
 				state.parent_state.local_position.north, 
@@ -245,33 +252,13 @@ class RapidlyExploringRandomTree(Planner):
 		plt.show()
 		#pdb.set_trace()
 
-		return state_sequence
-
-	def visualize(self):
-		pass
-
-	def plot_environment(self):
-		fig, ax = plt.subplots()
-		ax.set_xlabel("North")
-		ax.set_ylabel("East")
-		color_map_of_plot = plt.get_cmap('coolwarm')
-		list_of_obstacle_heights = [obstacle.height for obstacle in self._environment.obstacles.list]
-		normalization_of_obstacle_heights = Normalize(vmin=min(list_of_obstacle_heights), vmax=max(list_of_obstacle_heights))
-		scalar_mappable = ScalarMappable(norm=normalization_of_obstacle_heights, cmap=color_map_of_plot)
-		scalar_mappable.set_array([])
-		for obstacle in self._environment.obstacles.list:
-			obstacle_color = color_map_of_plot(normalization_of_obstacle_heights(obstacle.height))
-			obstacle_as_a_circle_patch = patches.Circle((obstacle.local_position.north, obstacle.local_position.east), obstacle.safety, color=obstacle_color, alpha=0.3)
-			ax.add_patch(obstacle_as_a_circle_patch)
-			ax.text(obstacle.local_position.north, obstacle.local_position.east, f"{float(obstacle.height):.1f}", fontsize=8)
-		#ax.scatter(self.goal_state.local_position.north, self.goal_state.local_position.east, c='red', s=30, marker='x', label='Goal')
-		#ax.legend()
-		color_bar = plt.colorbar(scalar_mappable, ax=ax)
-		color_bar.set_label("Altitude (m)")
-		
 	@property
 	def state_sequence(self):
 		return self._state_sequence
+
+	@property
+	def cost(self):
+		return self._cost
 
 class LocalPositionVector:
 	def __init__(self, north_component, east_component, down_component):

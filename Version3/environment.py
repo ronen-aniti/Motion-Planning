@@ -114,7 +114,7 @@ class Environment:
 		fig, ax = plt.subplots()
 		ax.set_xlabel("North")
 		ax.set_ylabel("East")
-		color_map_of_plot = plt.get_cmap('coolwarm')
+		color_map_of_plot = plt.get_cmap('gist_yarg')
 		list_of_obstacle_heights = [obstacle.height for obstacle in self.obstacles.list]
 		normalization_of_obstacle_heights = Normalize(vmin=min(list_of_obstacle_heights), vmax=max(list_of_obstacle_heights))
 		scalar_mappable = ScalarMappable(norm=normalization_of_obstacle_heights, cmap=color_map_of_plot)
@@ -123,7 +123,7 @@ class Environment:
 			obstacle_color = color_map_of_plot(normalization_of_obstacle_heights(obstacle.height))
 			obstacle_as_a_circle_patch = patches.Circle((obstacle.local_position.north, obstacle.local_position.east), obstacle.safety, color=obstacle_color, alpha=0.3)
 			ax.add_patch(obstacle_as_a_circle_patch)
-			ax.text(obstacle.local_position.north, obstacle.local_position.east, f"{float(obstacle.height):.1f}", fontsize=8)
+			#ax.text(obstacle.local_position.north, obstacle.local_position.east, f"{float(obstacle.height):.1f}", fontsize=8)
 		#ax.scatter(self.goal_state.local_position.north, self.goal_state.local_position.east, c='red', s=30, marker='x', label='Goal')
 		#ax.legend()
 		color_bar = plt.colorbar(scalar_mappable, ax=ax)
@@ -131,7 +131,6 @@ class Environment:
 		ax.set_xlim(self.north_bounds.minimum, self.north_bounds.maximum)
 		ax.set_ylim(self.east_bounds.minimum, self.east_bounds.maximum)
 		plt.title("The Environment")
-		plt.legend()
 		return fig, ax
 
 	@property
