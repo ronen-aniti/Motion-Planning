@@ -4,8 +4,7 @@ Tagline. Ronen Aniti. Photo. Title. Tagline: Hire me for _____.
 1. Provide evidence of my skills and abilities qualifying me for the position of _________. 2. Document the project __________, which is the second project that I document, the first of which is ______, and the projects
 I will be working on in the future are ____, ____, and _____. 
 
-![Alt Text](Figure_1.png){: width="200" height="200"}
-
+![Alt Text](Figure_1.png)
 ### Who am I?
 I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
 Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
@@ -33,12 +32,7 @@ The global planners are these, and they work like this.
 2. PRM. How it works, generally. How I implemented it in code. Graph of trajectory. 
 3. Potential field. How it works, generally, including the governing equation. How I implemented it in code. Graph of trajectory. 
 
-$$
-\vec{F} = -\nabla{U}(x,y,z) \\
-d_o = f_1(x,y,z), d_g=f_2(x,y,z) \\ 
-U_{r} = \frac{k_o}{d{_o}^{2}}, U_{a}=\frac{k_g}{d{_g}^{2}} \\
-\vec{F} = -\nabla{(\frac{k_o}{d{_o}^{2}} + \frac{k_g}{d{_g}^{2}})}
-$$
+![Alt Text](CodeCogsEqn.png)
 
 4. 2d Grid. How it works, generally. How I implemented it in code. Graph of trajectory. 
 5. Voxel map. How it works generally. How I implemented it in code. Graph of trajectory. 
