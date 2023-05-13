@@ -22,12 +22,14 @@ Concept or skill 1. Concept or skill 2. Concept or skill 3.
 
 # Project Details
 
-## What features did I implement? 
+## What features did I implement?
+Answer. 
 1. Global path planning. Summary of what that means. 
 2. Receding horizon path planning. Summary of what that means. 
 3. Replanning. Summary of that means. 
 
 ## How do those features work?
+Answer.
 ### The global planners are these, and they work like this.
 1. RRT. How it works, generally. How I implemented it in code. Graph of trajectory. 
 2. PRM. How it works, generally. How I implemented it in code. Graph of trajectory. 
@@ -36,13 +38,12 @@ Concept or skill 1. Concept or skill 2. Concept or skill 3.
 ![Alt Text](CodeCogsEqn.png)
 
 4. 2d Grid. How it works, generally. How I implemented it in code. Graph of trajectory. 
-
-<img src="Figure_1.png" alt="Alt Text" width="500" height="500">
-
 5. Voxel map. How it works generally. How I implemented it in code. Graph of trajectory. 
 6. Voronoi graph. How it works, generally. How I implemented it in code. Graph of trajectory. 
 7. Medial axis map. How it works, generally. How I implemented it in code. Graph of trajectory.
 8. 2d graph. How it works, generally. How I implemented it in code. Graph or trajectory. 
+
+<img src="Figure_1.png" alt="Alt Text" width="500" height="500">
 
 ### The receding horizon planner definition. How it works, generally. How I implemented it in code. Graph of trajectory. 
 
