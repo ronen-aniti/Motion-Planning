@@ -5,6 +5,7 @@ Tagline. Ronen Aniti. Photo. Title. Tagline: Hire me for _____.
 I will be working on in the future are ____, ____, and _____. 
 
 <img src="Figure_1.png" alt="Alt Text" width="500" height="500">
+
 ### Who am I?
 I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
 Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
