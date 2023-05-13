@@ -30,7 +30,8 @@ Answer.
 
 ## How do those features work?
 Answer.
-### The global planners are these, and they work like this.
+### The global path planners
+The global planners are these, and they work like this.
 1. RRT. How it works, generally. How I implemented it in code. Graph of trajectory. 
 2. PRM. How it works, generally. How I implemented it in code. Graph of trajectory. 
 3. Potential field. How it works, generally, including the governing equation. How I implemented it in code. Graph of trajectory. 
@@ -45,9 +46,11 @@ Answer.
 
 <img src="Figure_1.png" alt="Alt Text" width="500" height="500">
 
-### The receding horizon planner definition. How it works, generally. How I implemented it in code. Graph of trajectory. 
+### The local path planner
+The receding horizon planner definition. How it works, generally. How I implemented it in code. Graph of trajectory. 
 
-### The definition of replanning. How it works, generally. How I implemented it in code. Graph of trajectory. 
+### Replanning
+The definition of replanning. How it works, generally. How I implemented it in code. Graph of trajectory. 
 
 ## What challenges did I face, and how did I solve them? 
 1. Challenge 1. Solution 1. 
