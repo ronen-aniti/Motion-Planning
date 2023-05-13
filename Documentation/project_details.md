@@ -56,7 +56,7 @@ The receding horizon planner definition. How it works, generally. How I implemen
 ### Replanning
 The definition of replanning. How it works, generally. How I implemented it in code. Graph of trajectory. 
 
-<img src="Figure_1.png" alt="Alt Text" width="500" height="500">
+<img src="Figure_1-1.png" alt="Alt Text" width="400" height="400">
 
 ## What challenges did I face, and how did I solve them? 
 1. Challenge 1. Solution 1. 
@@ -67,7 +67,7 @@ The definition of replanning. How it works, generally. How I implemented it in c
 Plot 2 bar graphs. The first one will show the average runtime, n=1000, for each global planner. The second will show the average cost, n=1000, for each planner. Make a brief statement about how I used
 this information to set the default planner. But also make a statement about the relative pros and cons about each planner. 
 
-<img src="Figure_1.png" alt="Alt Text" width="500" height="500">
+<img src="Figure_1-2.png" alt="Alt Text" width="400" height="400">
 
 ## Where would I go with this project if I had more time? 
 1. Learn more Numpy, Matplotlib
