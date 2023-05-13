@@ -83,8 +83,8 @@ this information to set the default planner. But also make a statement about the
 5. Figure out if we could work together. 
 
 # Links to other projects
-## Tutoring
-## Path planning
-## Control systems
-## State estimation
-## Fixed-wing control
+1. Tutoring
+2. Path planning
+3. Control systems
+4. State estimation
+5. Fixed-wing control
