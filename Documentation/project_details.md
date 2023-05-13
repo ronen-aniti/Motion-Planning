@@ -81,3 +81,10 @@ this information to set the default planner. But also make a statement about the
 3. Schedule a call. 
 4. Interview me for a job. 
 5. Figure out if we could work together. 
+
+# Links to other projects
+## Tutoring
+## Path planning
+## Control systems
+## State estimation
+## Fixed-wing control
