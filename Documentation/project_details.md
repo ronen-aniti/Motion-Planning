@@ -1,23 +1,17 @@
-# Ronen Aniti. Path Planning Project.
-Tagline. Ronen Aniti. 
+# Ronen Aniti. Title.
+Tagline. Introduction. Purpose of portfolio. Transition to first project.
 Photo. Title. Tagline: Hire me for _____.
-
-<img src="portrait.jpg" alt="Alt Text" width="400" height="400">
-
-# Who am I, and what is this page about?
-
-## Who am I
 I am a student interseted in becoming a gnc engineer. Evidence 1. Evidence 2. 
 Optional. A Video presentation explaining who I am and what this project is about, with Live Simulator Footage, under 5 Minutes. 
 
-## What is this page about?
 1. Provide evidence of my skills and abilities qualifying me for the position of _________. 2. Document the project __________, which is the second project that I document, the first of which is ______, and the projects
 I will be working on in the future are ____, ____, and _____. 
 
-# The motion planning project: an overview
+<img src="portrait.jpg" alt="Alt Text" width="200" height="200">
 
+# Project Overview
 ## What is this project really about? 
-This project is really about this. Fact 1. Fact 2. Fact 3.
+This project is really about this. Fact 1. Fact 2. Fact 3. Mention motivating question. Mention requrements and constraints. 
 
 ## Why does this project matter to me? 
 The project matters for several reasons. Reason 1. Reason 2. 
@@ -26,7 +20,6 @@ The project matters for several reasons. Reason 1. Reason 2.
 Concept or skill 1. Concept or skill 2. Concept or skill 3. 
 
 # Project Details
-
 ## What features did I implement?
 Answer. 
 1. Global path planning. Summary of what that means. 
@@ -91,7 +84,7 @@ this information to set the default planner. But also make a statement about the
 # Links to other projects
 These are links to the other projects in that comprise my portfolio.
 1. Tutoring
-2. Path planning
+2. Path planning *
 3. Control systems
 4. State estimation
 5. Fixed-wing control

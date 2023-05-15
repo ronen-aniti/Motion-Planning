@@ -76,7 +76,6 @@ prm = ProbabilisticRoadmap(environment, current_state, goal_state)
 waypoints = prm.determine_waypoints()
 prm.visualize(plot_entire_state_space=True)
 
-
 # Generate a 2d graph representation
 graph = Graph(environment, current_state, goal_state)
 waypoints = graph.search()
