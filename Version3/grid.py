@@ -84,6 +84,15 @@ class Grid(Planner):
 		# Show the plot.
 		plt.show()
 
+	def generate_trajectory(self):
+		step = 0.01
+		north_current = 0
+		east_current = 0 
+		gradient_north = 0
+		gradient_east = 0
+		while True:
+			north_current = north_current + gradient_north * time_step
+
 
 		
 	def _convert_obstacles_to_grid(self):

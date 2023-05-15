@@ -60,7 +60,7 @@ The definition of replanning. How it works, generally. How I implemented it in c
 Plot 2 bar graphs. The first one will show the average runtime, n=1000, for each global planner. The second will show the average cost, n=1000, for each planner. Make a brief statement about how I used
 this information to set the default planner. But also make a statement about the relative pros and cons about each planner. 
 
-<img src="Figure_1-2.png" alt="Alt Text" width="400" height="400">
+<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vRUi-Ar2XlcgazsXvVpVOzr1Apky0NuDdTu1fTr-xjwKlwD7XIGAPSX-bHcNO-vBprgE0vOhA8xZ_Vl/embed?start=false&loop=true&delayms=3000" frameborder="0" width="960" height="569" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 
 ## Where would I go with this project if I had more time? 
 1. Learn more Numpy, Matplotlib

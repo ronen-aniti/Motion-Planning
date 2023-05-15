@@ -20,7 +20,7 @@ class ProbabilisticRoadmap(Planner):
 	# 1. Consider its n nearest neighbor states
 	# 2. For each neighbor state ask: could a straight line of states of resolution X be drawn to connect the start and end states?
 	# 3. If so, then add an edge between state 1 and state 2. Keep track of edges using a dictionary.
-	# Conduct an A* search from the start state to the goal state
+	# Conduct an A* solution path from the start state to the goal state
 	# Return the list of waypoints and the cost. 
 	def __init__(self, environment: Environment, start_state: State, goal_state: State):
 		super().__init__(environment, start_state, goal_state)
@@ -147,7 +147,7 @@ class ProbabilisticRoadmap(Planner):
 
 			return waypoints
 
-		return None
+		self._take_samples()
 
 
 

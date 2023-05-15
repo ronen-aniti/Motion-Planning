@@ -2,10 +2,13 @@ from environment import Environment
 from geodetic_position import GeodeticPosition
 from graph import Graph
 from grid import Grid
+from halfsize import HalfSize
+from local_position import LocalPosition
 import matplotlib.pyplot as plt
 from prm import ProbabilisticRoadmap
 from start_goal_pair import StartGoalPair
 from state import State
+from obstacle import Obstacle
 from obstacle_collection import ObstacleCollection
 from obstacle_file_reader import ObstacleFileReader
 from rrt import RapidlyExploringRandomTree
@@ -48,6 +51,17 @@ reader = ObstacleFileReader(filename)
 geodetic_home = reader.extract_geodetic_home()
 obstacle_array = reader.extract_obstacles_as_array() 
 obstacle_collection = ObstacleCollection(obstacle_array, geodetic_home)
+
+##
+# Try adding an obstacle into the collection
+print("Adding...")
+obs_local_pos = LocalPosition(220, -90, 100)
+obs_halfsize = HalfSize(20, 20, 100)
+obs = Obstacle(obs_local_pos, obs_halfsize)
+obstacle_collection.insert_obstacle_into_collection(obs)
+print("Obstacle added")
+##
+
 #geodetic_goal = GeodeticPosition(-122.396375, 37.793913, 10) #User determines goal lon, lat, alt.
 geodetic_goal = GeodeticPosition(-122.3994, 37.7951, 10)
 environment = Environment(geodetic_home, obstacle_collection)
@@ -58,8 +72,7 @@ goal_position_in_local_frame = geodetic_goal.local_relative_to(geodetic_home)
 current_state = State(environment, goal_position_in_local_frame, current_local_position)
 goal_state = State(environment, goal_position_in_local_frame, goal_position_in_local_frame)
 
-"""
-pdb.set_trace()
+
 # Generate a rapidly-exploring random tree (RRT)
 rapidly_exploring_random_tree = RapidlyExploringRandomTree(environment, current_state, goal_state)
 waypoints = rapidly_exploring_random_tree.run() 
@@ -82,7 +95,6 @@ waypoints = graph.search()
 print(waypoints)
 graph.visualize(plot_entire_state_space=True)
 
-"""
 # Generate a 2d grid representation
 grid = Grid(environment, current_state, goal_state)
 grid.search()
